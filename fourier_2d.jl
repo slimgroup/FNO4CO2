@@ -4,6 +4,7 @@
 using PyPlot
 using Flux, Random, FFTW, Zygote, NNlib
 using Einsum
+using MAT, Statistics
 
 Random.seed!(3)
 
@@ -147,3 +148,11 @@ x = randn(s, h, 3, batch_size)
 NN = Net2d(modes, width)
 
 y = NN(x)
+
+TRAIN = matread("data/piececonst_r421_N1024_smooth1.mat")
+x_train = TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
+y_train = TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
+
+TEST = matread("data/piececonst_r421_N1024_smooth2.mat")
+x_test = TRAIN["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
+y_test = TRAIN["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
