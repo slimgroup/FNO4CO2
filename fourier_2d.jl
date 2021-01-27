@@ -6,6 +6,8 @@ using Flux, Random, FFTW, Zygote, NNlib
 using Einsum
 using MAT, Statistics
 
+include("utils.jl")
+
 Random.seed!(3)
 
 mutable struct SpectralConv2d
@@ -156,3 +158,12 @@ y_train = TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
 TEST = matread("data/piececonst_r421_N1024_smooth2.mat")
 x_test = TRAIN["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
 y_test = TRAIN["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
+
+x_normalizer = UnitGaussianNormalizer(x_train)
+x_train = encode(x_normalizer,x_train)
+x_test = encode(x_normalizer,x_test)
+
+y_normalizer = UnitGaussianNormalizer(y_train)
+y_train = encode(y_normalizer,y_train)
+
+grids = []
