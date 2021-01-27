@@ -85,29 +85,27 @@ function SimpleBlock2d(modes1, modes2, width)
 end
 
 function (B::SimpleBlock2d)(x::AbstractArray)
-    batchsize = size(x)[end]
-    size_x, size_y = size(x,1), size(x,2)
-    x = B.fc0(x)
-
+    size_x = size(x)
+    x = reshape(B.fc0(reshape(x,3,:)),size_x[1],size_x[2],:,size_x[end])
     x1 = B.conv0(x)
     x2 = B.w0(x)
     x = B.bn0(x1+x2)
-    x = relu(x)
+    x = relu.(x)
     x1 = B.conv1(x)
     x2 = B.w1(x)
     x = B.bn1(x1+x2)
-    x = relu(x)
+    x = relu.(x)
     x1 = B.conv2(x)
     x2 = B.w2(x)
     x = B.bn2(x1+x2)
-    x = relu(x)
+    x = relu.(x)
     x1 = B.conv3(x)
     x2 = B.w3(x)
     x = B.bn3(x1+x2)
     
-    x = B.fc1(x)
-    x = relu(x)
-    x = B.fc3(x)
+    x = reshape(B.fc1(reshape(x,width,:)),size_x[1],size_x[2],:,size_x[end])
+    x = relu.(x)
+    x = reshape(B.fc2(reshape(x,128,:)),size_x[1],size_x[2],:,size_x[end])
     return x
 end
 
@@ -121,7 +119,31 @@ function Net2d(modes, width)
     return Net2d(SimpleBlock2d(modes,modes,width))
 end
 
-function (NN::SimpleBlock2d)(x::AbstractArray)
+function (NN::Net2d)(x::AbstractArray)
     x = NN.conv1(x)
-    x = dropdims(x,dims=2)
+    x = dropdims(x,dims=3)
 end
+
+
+ntrain = 1000
+ntest = 100
+
+batch_size = 20
+learning_rate = 0.001
+
+epochs = 500
+step_size = 100
+gamma = 0.5
+
+modes = 12
+width = 32
+
+r = 5
+h = Int(((421 - 1)/r) + 1)
+s = h
+
+x = randn(s, h, 3, batch_size)
+
+NN = Net2d(modes, width)
+
+y = NN(x)
