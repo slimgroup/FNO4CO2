@@ -68,7 +68,7 @@ end
 
 function SimpleBlock2d(modes1, modes2, width)
     block = SimpleBlock2d(
-        Dense(3, width),
+        Conv((1, 1), 3=>width),
         SpectralConv2d(width, width, modes1, modes2),
         SpectralConv2d(width, width, modes1, modes2),
         SpectralConv2d(width, width, modes1, modes2),
@@ -81,15 +81,16 @@ function SimpleBlock2d(modes1, modes2, width)
         BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
         BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
         BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
-        Dense(width, 128),
-        Dense(128,1)
+        Conv((1, 1), width=>128),
+        Conv((1, 1), 128=>1)
     )
     return block
 end
 
 function (B::SimpleBlock2d)(x::AbstractArray)
     size_x = size(x)
-    x = reshape(B.fc0(reshape(x,3,:)),size_x[1],size_x[2],:,size_x[end])
+    x = permutedims(x,[3,1,2,4])
+    x = reshape(B.fc0(reshape(x,3,:)),size_x[3],size_x[2],:,size_x[end])
     x1 = B.conv0(x)
     x2 = B.w0(x)
     x = B.bn0(x1+x2)
@@ -166,4 +167,9 @@ x_test = encode(x_normalizer,x_test)
 y_normalizer = UnitGaussianNormalizer(y_train)
 y_train = encode(y_normalizer,y_train)
 
-grids = []
+x = reshape(collect(range(0f0,stop=1f0,length=s)), :, 1)
+z = reshape(collect(range(0f0,stop=1f0,length=s)), 1, :)
+
+grid = zeros(s,s,2,1)
+grid[:,:,1,1] = repeat(z,s)
+grid[:,:,2,1] = repeat(x',s)'
