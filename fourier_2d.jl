@@ -21,8 +21,8 @@ end
 # Constructor
 function SpectralConv2d(in_channels, out_channels, modes1, modes2)
     scale = (1 / (in_channels * out_channels))
-    weights1 = scale*rand(Complex{Float64}, modes1, modes2, in_channels, out_channels)
-    weights2 = scale*rand(Complex{Float64}, modes1, modes2, in_channels, out_channels)
+    weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
+    weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
     return SpectralConv2d(weights1, weights2)
 end
 
@@ -42,7 +42,7 @@ function (L::SpectralConv2d)(x::AbstractArray)
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
-        zeros(eltype(x_ft),size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
+        zeros(Float32,size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
         compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
     x = irfft(out_ft, size(x,2),[2,1])
 end
@@ -145,12 +145,12 @@ h = Int(((421 - 1)/r) + 1)
 s = h
 
 TRAIN = matread("data/piececonst_r421_N1024_smooth1.mat")
-x_train_ = TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
-y_train_ = TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
+x_train_ = convert(Array{Float32},TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s])
+y_train_ = convert(Array{Float32},TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s])
 
 TEST = matread("data/piececonst_r421_N1024_smooth2.mat")
-x_test_ = TEST["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
-y_test = TEST["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
+x_test_ = convert(Array{Float32},TEST["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s])
+y_test = convert(Array{Float32},TEST["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s])
 
 x_train_ = permutedims(x_train_,[2,3,1])
 x_test_ = permutedims(x_test_,[2,3,1])
@@ -168,11 +168,11 @@ y_train = encode(y_normalizer,y_train_)
 x = reshape(collect(range(0f0,stop=1f0,length=s)), :, 1)
 z = reshape(collect(range(0f0,stop=1f0,length=s)), 1, :)
 
-grid = zeros(s,s,2)
+grid = zeros(Float32,s,s,2)
 grid[:,:,1] = repeat(z,s)
 grid[:,:,2] = repeat(x',s)'
 
-x_train = zeros(s,s,3,ntrain)
+x_train = zeros(Float32,s,s,3,ntrain)
 x_train[:,:,1,:] = x_train_
 
 for i = 1:ntrain
@@ -180,7 +180,7 @@ for i = 1:ntrain
     x_train[:,:,3,i] = grid[:,:,2]
 end
 
-x_test = zeros(s,s,3,ntest)
+x_test = zeros(Float32,s,s,3,ntest)
 x_test[:,:,1,:] = x_test_
 
 for i = 1:ntest
@@ -197,17 +197,17 @@ w = Flux.params(NN)
 Flux.trainmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9, 0.999), 0.0001)
 
-i = 0 # training iteration
-for (x,y) in train_loader
-    global i = i+1
-    grads = gradient(w) do
-        out = decode(y_normalizer,NN(x))
-        y_n = decode(y_normalizer,y)
-        loss = 1/(s-1)*Flux.mse(out,y_n)
-        i%10 == 0 && print(" Iteration: ", i, " | Objective = ", loss, "\r")
-        return loss
+for ep in range(epochs)
+    for (x,y) in train_loader
+        grads = gradient(w) do
+            out = decode(y_normalizer,NN(x))
+            y_n = decode(y_normalizer,y)
+            loss = 1/(s-1)*Flux.mse(out,y_n)
+            return loss
+        end
+        for p in w
+            Flux.Optimise.update!(opt, p, grads[p])
+        end
     end
-    for p in w
-        Flux.Optimise.update!(opt, p, grads[p])
-    end
+    println(" Epoch: ", i, " | Objective = ", loss)
 end
