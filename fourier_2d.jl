@@ -131,7 +131,7 @@ ntest = 100
 batch_size = 20
 learning_rate = 1f-3
 
-epochs = 5
+epochs = 500
 step_size = 100
 gamma = 5f-1
 
@@ -189,7 +189,7 @@ end
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
 
-NN = Net2d(modes, width)
+NN = Net2d(modes, width) |> gpu
 
 w = Flux.params(NN)
 Flux.trainmode!(NN, true)
@@ -199,6 +199,8 @@ Loss = zeros(Float32,epochs)
 for ep = 1:epochs
     for (x,y) in train_loader
         grads = gradient(w) do
+            x |> gpu
+            y |> gpu
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
             global loss = 1f0/(s-1)*Flux.mse(out,y_n)
@@ -212,7 +214,7 @@ for ep = 1:epochs
     Loss[ep] = loss
 end
 
-figure();plot(Loss)
+figure();plot(Loss);title("History");xlabel("Epochs");ylabel("Loss")
 
 Flux.testmode!(NN, true)
 
@@ -257,4 +259,4 @@ subplot(3,3,9);
 title("true 3")
 imshow(y_test_3)
 
-savefig("result/5ep.png")
+savefig("result/500ep.png")
