@@ -197,7 +197,7 @@ w = Flux.params(NN)
 Flux.trainmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9, 0.999), 0.0001)
 
-for ep in range(epochs)
+for ep = 1:epochs
     for (x,y) in train_loader
         grads = gradient(w) do
             out = decode(y_normalizer,NN(x))
