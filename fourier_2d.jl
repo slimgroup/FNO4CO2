@@ -151,6 +151,11 @@ TEST = matread("data/piececonst_r421_N1024_smooth2.mat")
 x_test_ = TEST["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
 y_test = TEST["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
 
+x_train_ = permutedims(x_train_,[2,3,1])
+x_test_ = permutedims(x_test_,[2,3,1])
+y_train_ = permutedims(y_train_,[2,3,1])
+y_test = permutedims(y_test,[2,3,1])
+
 x_normalizer = UnitGaussianNormalizer(x_train_)
 x_train_ = encode(x_normalizer,x_train_)
 x_test_ = encode(x_normalizer,x_test_)
@@ -166,26 +171,21 @@ grid = zeros(s,s,2)
 grid[:,:,1] = repeat(z,s)
 grid[:,:,2] = repeat(x',s)'
 
-x_train = zeros(ntrain,s,s,3)
-x_train[:,:,:,1] = x_train_
+x_train = zeros(s,s,3,ntrain)
+x_train[:,:,1,:] = x_train_
 
 for i = 1:ntrain
-    x_train[i,:,:,2] = grid[:,:,1]
-    x_train[i,:,:,3] = grid[:,:,2]
+    x_train[:,:,2,i] = grid[:,:,1]
+    x_train[:,:,3,i] = grid[:,:,2]
 end
 
-x_test = zeros(ntest,s,s,3)
-x_test[:,:,:,1] = x_test_
+x_test = zeros(s,s,3,ntest)
+x_test[:,:,1,:] = x_test_
 
 for i = 1:ntest
-    x_test[i,:,:,2] = grid[:,:,1]
-    x_test[i,:,:,3] = grid[:,:,2]
+    x_test[:,:,2,i] = grid[:,:,1]
+    x_test[:,:,3,i] = grid[:,:,2]
 end
-
-x_train = permutedims(x_train,[2,3,4,1])
-x_test = permutedims(x_test,[2,3,4,1])
-y_train = permutedims(y_train,[2,3,1])
-y_test = permutedims(y_test,[2,3,1])
 
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
@@ -198,7 +198,7 @@ opt = Flux.Optimise.ADAMW(learning_rate, (0.9, 0.999), 0.0001)
 
 i = 0 # training iteration
 for (x,y) in train_loader
-    i = i+1
+    global i = i+1
     grads = gradient(w) do
         out = decode(y_normalizer,NN(x))
         y_n = decode(y_normalizer,y)
