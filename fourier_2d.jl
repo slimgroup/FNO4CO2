@@ -3,7 +3,6 @@
 
 using PyPlot
 using Flux, Random, FFTW, Zygote, NNlib
-#using Einsum
 using MAT, Statistics, LinearAlgebra
 using OMEinsum
 
@@ -26,23 +25,22 @@ function SpectralConv2d(in_channels, out_channels, modes1, modes2)
     return SpectralConv2d(weights1, weights2)
 end
 
-function compl_mul2d(x, y)
+function compl_mul2d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Complex{Float32}})
     # complex multiplication
     # x in (modes1, modes2, input channels, batchsize)
     # y in (modes1, modes2, input channels, output channels, 2)
     # output in (modes1,modes2 output)
-    #f_einsum(A,B) = @einsum C[i,j,k,l] := A[i,j,m,l] * B[i,j,m,k]
     out = ein"ijml, ijmk -> ijkl"(x,y)
     return out
 end
 
-function (L::SpectralConv2d)(x::AbstractArray)
+function (L::SpectralConv2d)(x::AbstractArray{Float32})
     # x in (size_x, size_y, channels, batchsize)
     x_ft = rfft(x,[2,1])
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
-        zeros(Float32,size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
+        zeros(Complex{Float32},size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
         compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
     x = irfft(out_ft, size(x,2),[2,1])
 end
@@ -88,7 +86,7 @@ function SimpleBlock2d(modes1, modes2, width)
     return block
 end
 
-function (B::SimpleBlock2d)(x::AbstractArray)
+function (B::SimpleBlock2d)(x::AbstractArray{Float32})
     x = B.fc0(x)
     x1 = B.conv0(x)
     x2 = B.w0(x)
@@ -121,7 +119,7 @@ function Net2d(modes, width)
     return Net2d(SimpleBlock2d(modes,modes,width))
 end
 
-function (NN::Net2d)(x::AbstractArray)
+function (NN::Net2d)(x::AbstractArray{Float32})
     x = NN.conv1(x)
     x = dropdims(x,dims=3)
 end
@@ -131,11 +129,11 @@ ntrain = 1000
 ntest = 100
 
 batch_size = 20
-learning_rate = 0.001
+learning_rate = 1f-3
 
 epochs = 500
 step_size = 100
-gamma = 0.5
+gamma = 5f-1
 
 modes = 12
 width = 32
@@ -195,19 +193,23 @@ NN = Net2d(modes, width)
 
 w = Flux.params(NN)
 Flux.trainmode!(NN, true)
-opt = Flux.Optimise.ADAMW(learning_rate, (0.9, 0.999), 0.0001)
+opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
+Loss = zeros(Float32,epochs)
 for ep = 1:epochs
     for (x,y) in train_loader
         grads = gradient(w) do
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
-            loss = 1/(s-1)*Flux.mse(out,y_n)
+            loss = 1f0/(s-1)*Flux.mse(out,y_n)
             return loss
         end
         for p in w
             Flux.Optimise.update!(opt, p, grads[p])
         end
     end
-    println(" Epoch: ", i, " | Objective = ", loss)
+    println(" Epoch: ", ep, " | Objective = ", loss)
+    Loss[ep] = loss
 end
+
+figure();plot(Loss)
