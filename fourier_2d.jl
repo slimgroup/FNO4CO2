@@ -143,31 +143,47 @@ r = 5
 h = Int(((421 - 1)/r) + 1)
 s = h
 
-x = randn(s, h, 3, batch_size)
+input_x = randn(s, h, 3, batch_size)
 
 NN = Net2d(modes, width)
 
-y = NN(x)
+output_y = NN(input_x)
 
 TRAIN = matread("data/piececonst_r421_N1024_smooth1.mat")
-x_train = TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
-y_train = TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
+x_train_ = TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
+y_train_ = TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
 
 TEST = matread("data/piececonst_r421_N1024_smooth2.mat")
-x_test = TRAIN["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
-y_test = TRAIN["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
+x_test_ = TEST["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
+y_test_ = TEST["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
 
-x_normalizer = UnitGaussianNormalizer(x_train)
-x_train = encode(x_normalizer,x_train)
-x_test = encode(x_normalizer,x_test)
+x_normalizer = UnitGaussianNormalizer(x_train_)
+x_train_ = encode(x_normalizer,x_train_)
+x_test_ = encode(x_normalizer,x_test_)
 
 y_normalizer = UnitGaussianNormalizer(y_train)
-y_train = encode(y_normalizer,y_train)
+y_train = encode(y_normalizer,y_train_)
+#y_test = encode(y_normalizer,y_test_)
 
 x = reshape(collect(range(0f0,stop=1f0,length=s)), :, 1)
 z = reshape(collect(range(0f0,stop=1f0,length=s)), 1, :)
 
-grid = zeros(s,s,2,1)
-grid[:,:,1,1] = repeat(z,s)
-grid[:,:,2,1] = repeat(x',s)'
+grid = zeros(s,s,2)
+grid[:,:,1] = repeat(z,s)
+grid[:,:,2] = repeat(x',s)'
 
+x_train = zeros(ntrain,s,s,3)
+x_train[:,:,:,1] = x_train_
+
+for i = 1:ntrain
+    x_train[i,:,:,2] = grid[:,:,1]
+    x_train[i,:,:,3] = grid[:,:,2]
+end
+
+x_test = zeros(ntest,s,s,3)
+x_test[:,:,:,1] = x_test_
+
+for i = 1:ntest
+    x_test[i,:,:,2] = grid[:,:,1]
+    x_test[i,:,:,3] = grid[:,:,2]
+end
