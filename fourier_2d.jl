@@ -3,8 +3,9 @@
 
 using PyPlot
 using Flux, Random, FFTW, Zygote, NNlib
-using Einsum
+#using Einsum
 using MAT, Statistics, LinearAlgebra
+using OMEinsum
 
 include("utils.jl")
 
@@ -30,8 +31,9 @@ function compl_mul2d(x, y)
     # x in (modes1, modes2, input channels, batchsize)
     # y in (modes1, modes2, input channels, output channels, 2)
     # output in (modes1,modes2 output)
-    f_einsum(A,B) = @einsum C[i,j,k,l] := A[i,j,m,l] * B[i,j,m,k]
-    return f_einsum(x,y)
+    #f_einsum(A,B) = @einsum C[i,j,k,l] := A[i,j,m,l] * B[i,j,m,k]
+    out = ein"ijml, ijmk -> ijkl"(x,y)
+    return out
 end
 
 function (L::SpectralConv2d)(x::AbstractArray)
