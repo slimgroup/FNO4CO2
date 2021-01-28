@@ -19,7 +19,7 @@ end
 
 # Constructor
 function SpectralConv2d(in_channels, out_channels, modes1, modes2)
-    scale = (1 / (in_channels * out_channels))
+    scale = (1f0 / (in_channels * out_channels))
     weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
     weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
     return SpectralConv2d(weights1, weights2)
@@ -201,7 +201,7 @@ for ep = 1:epochs
         grads = gradient(w) do
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
-            loss = 1f0/(s-1)*Flux.mse(out,y_n)
+            global loss = 1f0/(s-1)*Flux.mse(out,y_n)
             return loss
         end
         for p in w
