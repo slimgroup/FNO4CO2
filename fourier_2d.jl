@@ -20,8 +20,8 @@ end
 # Constructor
 function SpectralConv2d(in_channels, out_channels, modes1, modes2)
     scale = (1 / (in_channels * out_channels))
-    weights1 = scale*rand(modes1, modes2, in_channels, out_channels, 2)
-    weights2 = scale*rand(modes1, modes2, in_channels, out_channels, 2)
+    weights1 = scale*rand(Complex{Float64}, modes1, modes2, in_channels, out_channels)
+    weights2 = scale*rand(Complex{Float64}, modes1, modes2, in_channels, out_channels)
     return SpectralConv2d(weights1, weights2)
 end
 
@@ -31,7 +31,7 @@ function compl_mul2d(x, y)
     # y in (modes1, modes2, input channels, output channels, 2)
     # output in (modes1,modes2 output)
     f_einsum(A,B) = @einsum C[i,j,k,l] := A[i,j,m,l] * B[i,j,m,k]
-    return f_einsum(x,y[:,:,:,:,1]+im*y[:,:,:,:,2])
+    return f_einsum(x,y)
 end
 
 function (L::SpectralConv2d)(x::AbstractArray)
