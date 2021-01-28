@@ -30,6 +30,6 @@ function decode(normalizer::UnitGaussianNormalizer,x;sample_idx=nothing)
             mean_ = normalizer.mean_[:,sample_idx]
         end
     end
-    x = x .* std_ + mean_
+    x = x .* std_ .+ mean_
     return x
 end
