@@ -88,9 +88,7 @@ function SimpleBlock2d(modes1, modes2, width)
 end
 
 function (B::SimpleBlock2d)(x::AbstractArray)
-    size_x = size(x)
-    x = permutedims(x,[3,1,2,4])
-    x = reshape(B.fc0(reshape(x,3,:)),size_x[3],size_x[2],:,size_x[end])
+    x = B.fc0(x)
     x1 = B.conv0(x)
     x2 = B.w0(x)
     x = B.bn0(x1+x2)
@@ -106,10 +104,9 @@ function (B::SimpleBlock2d)(x::AbstractArray)
     x1 = B.conv3(x)
     x2 = B.w3(x)
     x = B.bn3(x1+x2)
-    
-    x = reshape(B.fc1(reshape(x,width,:)),size_x[1],size_x[2],:,size_x[end])
+    x = B.fc1(x)
     x = relu.(x)
-    x = reshape(B.fc2(reshape(x,128,:)),size_x[1],size_x[2],:,size_x[end])
+    x = B.fc2(x)
     return x
 end
 
@@ -173,3 +170,4 @@ z = reshape(collect(range(0f0,stop=1f0,length=s)), 1, :)
 grid = zeros(s,s,2,1)
 grid[:,:,1,1] = repeat(z,s)
 grid[:,:,2,1] = repeat(x',s)'
+
