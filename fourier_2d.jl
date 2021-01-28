@@ -4,7 +4,7 @@
 using PyPlot
 using Flux, Random, FFTW, Zygote, NNlib
 using Einsum
-using MAT, Statistics
+using MAT, Statistics, LinearAlgebra
 
 include("utils.jl")
 
@@ -143,25 +143,19 @@ r = 5
 h = Int(((421 - 1)/r) + 1)
 s = h
 
-input_x = randn(s, h, 3, batch_size)
-
-NN = Net2d(modes, width)
-
-output_y = NN(input_x)
-
 TRAIN = matread("data/piececonst_r421_N1024_smooth1.mat")
 x_train_ = TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
 y_train_ = TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s];
 
 TEST = matread("data/piececonst_r421_N1024_smooth2.mat")
 x_test_ = TEST["coeff"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
-y_test_ = TEST["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
+y_test = TEST["sol"][1:ntest,1:r:end,1:r:end][:,1:s,1:s];
 
 x_normalizer = UnitGaussianNormalizer(x_train_)
 x_train_ = encode(x_normalizer,x_train_)
 x_test_ = encode(x_normalizer,x_test_)
 
-y_normalizer = UnitGaussianNormalizer(y_train)
+y_normalizer = UnitGaussianNormalizer(y_train_)
 y_train = encode(y_normalizer,y_train_)
 #y_test = encode(y_normalizer,y_test_)
 
@@ -186,4 +180,33 @@ x_test[:,:,:,1] = x_test_
 for i = 1:ntest
     x_test[i,:,:,2] = grid[:,:,1]
     x_test[i,:,:,3] = grid[:,:,2]
+end
+
+x_train = permutedims(x_train,[2,3,4,1])
+x_test = permutedims(x_test,[2,3,4,1])
+y_train = permutedims(y_train,[2,3,1])
+y_test = permutedims(y_test,[2,3,1])
+
+train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
+test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
+
+NN = Net2d(modes, width)
+
+w = Flux.params(NN)
+Flux.trainmode!(NN, true)
+opt = Flux.Optimise.ADAMW(learning_rate, (0.9, 0.999), 0.0001)
+
+i = 0 # training iteration
+for (x,y) in train_loader
+    i = i+1
+    grads = gradient(w) do
+        out = decode(y_normalizer,NN(x))
+        y_n = decode(y_normalizer,y)
+        loss = 1/(s-1)*Flux.mse(out,y_n)
+        i%10 == 0 && print(" Iteration: ", i, " | Objective = ", loss, "\r")
+        return loss
+    end
+    for p in w
+        Flux.Optimise.update!(opt, p, grads[p])
+    end
 end
