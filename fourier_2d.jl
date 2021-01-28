@@ -131,7 +131,7 @@ ntest = 100
 batch_size = 20
 learning_rate = 1f-3
 
-epochs = 500
+epochs = 5
 step_size = 100
 gamma = 5f-1
 
@@ -213,3 +213,48 @@ for ep = 1:epochs
 end
 
 figure();plot(Loss)
+
+Flux.testmode!(NN, true)
+
+x_test_1 = x_test[:,:,:,1:1]
+x_test_2 = x_test[:,:,:,2:2]
+x_test_3 = x_test[:,:,:,3:3]
+
+y_test_1 = y_test[:,:,1]
+y_test_2 = y_test[:,:,2]
+y_test_3 = y_test[:,:,3]
+
+y_predict_1 = decode(y_normalizer,NN(x_test_1))[:,:,1]
+y_predict_2 = decode(y_normalizer,NN(x_test_2))[:,:,1]
+y_predict_3 = decode(y_normalizer,NN(x_test_3))[:,:,1]
+
+figure(figsize=(9,9));
+subplot(3,3,1);
+title("sample 1")
+imshow(x_test_1[:,:,1])
+subplot(3,3,2);
+title("sample 2")
+imshow(x_test_2[:,:,1])
+subplot(3,3,3);
+title("sample 3")
+imshow(x_test_3[:,:,1])
+subplot(3,3,4);
+title("predict 1")
+imshow(y_predict_1)
+subplot(3,3,5);
+title("predict 2")
+imshow(y_predict_2)
+subplot(3,3,6);
+title("predict 3")
+imshow(y_predict_3)
+subplot(3,3,7);
+title("true 1")
+imshow(y_test_1)
+subplot(3,3,8);
+title("true 2")
+imshow(y_test_2)
+subplot(3,3,9);
+title("true 3")
+imshow(y_test_3)
+
+savefig("result/5ep.png")
