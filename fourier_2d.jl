@@ -37,14 +37,13 @@ end
 function (L::SpectralConv2d)(x::AbstractArray)
     # x in (size_x, size_y, channels, batchsize)
     x_ft = rfft(x,[2,1])
-    out_ft = zeros(eltype(x_ft),size(x_ft))
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
-    out_ft[1:modes1,1:modes2,:,:] = compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1)
-    out_ft[end-modes1+1:end,1:modes2,:,:] = compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2)
-    x = irfft(out_ft, size(x,1),[2,1])
+    out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
+        zeros(eltype(x_ft),size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
+        compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
+    x = irfft(out_ft, size(x,2),[2,1])
 end
-
 
 mutable struct SimpleBlock2d
     fc0
