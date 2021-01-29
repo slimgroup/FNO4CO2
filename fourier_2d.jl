@@ -5,6 +5,7 @@ using PyPlot
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using OMEinsum
+using CUDA
 
 include("utils.jl")
 
@@ -40,7 +41,7 @@ function (L::SpectralConv2d)(x::AbstractArray{Float32})
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
-        zeros(Complex{Float32},size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
+        CUDA.zeros(Complex{Float32},size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
         compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
     x = irfft(out_ft, size(x,1),[1,2])
 end
