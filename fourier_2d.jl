@@ -4,7 +4,6 @@
 using PyPlot
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
-using OMEinsum
 using CUDA
 
 include("utils.jl")
@@ -33,9 +32,9 @@ function compl_mul2d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Comple
     # output in (modes1,modes2,output channles,batchsize)
     x_per = permutedims(x,[4,3,1,2]) # batchsize*in_channels*modes1*modes2
     y_per = permutedims(y,[3,4,1,2]) # in_channels*out_channels*modes1*modes2
-    x_resh = reshape(x_per,size(x_per,1),size(x_per,2),:)
-    y_resh = reshape(y_per,size(y_per,1),size(y_per,2),:)
-    out_resh = batched_mul(x_resh,y_resh) # batchsize*out_channels*:
+    x_resh = reshape(x_per,size(x_per,1),size(x_per,2),:) # batchsize*in_channels*(modes1*modes2)
+    y_resh = reshape(y_per,size(y_per,1),size(y_per,2),:) # in_channels*out_channels*(modes1*modes2)
+    out_resh = batched_mul(x_resh,y_resh) # batchsize*out_channels*(modes1*modes2)
     out_per = reshape(out_resh,size(out_resh,1),size(out_resh,2),size(x,1),size(x,2)) # batchsize*out_channels*modes1*modes2
     out = permutedims(out_per,[3,4,2,1])
     return out
