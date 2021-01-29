@@ -6,6 +6,7 @@ using BSON
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
+using DrWatson
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -142,7 +143,7 @@ ntest = 100
 batch_size = 20
 learning_rate = 1f-3
 
-epochs = 20
+epochs = 200
 step_size = 100
 gamma = 5f-1
 
@@ -228,6 +229,7 @@ for ep = 1:epochs
     Loss[ep] = loss
 end
 
+NN = NN |> cpu
 w = w |> cpu
 sim_name = "darcy_2d"
 save_dict = @strdict epochs learning_rate step_size batch_size ntrain ntest r h s modes width w sim_name
@@ -236,6 +238,11 @@ save_dict = @strdict epochs learning_rate step_size batch_size ntrain ntest r h 
 figure();plot(Loss);title("History");xlabel("Epochs");ylabel("Loss")
 
 Flux.testmode!(NN, true)
+
+y_normalizer.mean_ = y_normalizer.mean_ |> cpu
+y_normalizer.std_ = y_normalizer.std_   |> cpu
+y_normalizer.eps_ = y_normalizer.eps_   |> cpu
+
 
 x_test_1 = x_test[:,:,:,1:1]
 x_test_2 = x_test[:,:,:,2:2]
@@ -278,4 +285,4 @@ subplot(3,3,9);
 title("true 3")
 imshow(y_test_3)
 
-savefig("result/500ep.png")
+savefig("result/200ep.png")
