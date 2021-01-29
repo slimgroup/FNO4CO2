@@ -2,6 +2,7 @@
 # This code is an implementation of fourier neural operators from Zongyi Li's repository
 
 using PyPlot
+using BSON
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
@@ -141,7 +142,7 @@ ntest = 100
 batch_size = 20
 learning_rate = 1f-3
 
-epochs = 200
+epochs = 20
 step_size = 100
 gamma = 5f-1
 
@@ -171,7 +172,6 @@ x_test_ = encode(x_normalizer,x_test_)
 
 y_normalizer = UnitGaussianNormalizer(y_train_)
 y_train = encode(y_normalizer,y_train_)
-#y_test = encode(y_normalizer,y_test_)
 
 x = reshape(collect(range(0f0,stop=1f0,length=s)), :, 1)
 z = reshape(collect(range(0f0,stop=1f0,length=s)), 1, :)
@@ -227,6 +227,11 @@ for ep = 1:epochs
     println(" Epoch: ", ep, " | Objective = ", loss)
     Loss[ep] = loss
 end
+
+w = w |> cpu
+sim_name = "darcy_2d"
+save_dict = @strdict epochs learning_rate step_size batch_size ntrain ntest r h s modes width w sim_name
+@tagsave(datadir(sim_name, savename(save_dict, "bson")), save_dict; safe=true)
 
 figure();plot(Loss);title("History");xlabel("Epochs");ylabel("Loss")
 
