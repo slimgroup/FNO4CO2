@@ -189,6 +189,10 @@ end
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
 
+y_normalizer.mean_ = y_normalizer.mean_ |> gpu
+y_normalizer.std_ = y_normalizer.std_   |> gpu
+y_normalizer.eps_ = y_normalizer.eps_   |> gpu
+
 NN = Net2d(modes, width) |> gpu
 
 w = Flux.params(NN)
@@ -199,9 +203,11 @@ Loss = zeros(Float32,epochs)
 for ep = 1:epochs
     for (x,y) in train_loader
         grads = gradient(w) do
+            x = x |> gpu
+            y = y |> gpu
             out = decode(y_normalizer,NN(x))    |> gpu
             y_n = decode(y_normalizer,y)        |> gpu
-            global loss = 1f0/(s-1)*Flux.mse(out,y_n)
+            global loss = 1f0/(s-1)*Flux.mse(out,y_n;agg=sum)
             return loss
         end
         for p in w
