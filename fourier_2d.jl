@@ -207,7 +207,7 @@ for ep = 1:epochs
             y = y |> gpu
             out = decode(y_normalizer,NN(x))    |> gpu
             y_n = decode(y_normalizer,y)        |> gpu
-            global loss = 1f0/(s-1)*Flux.mse(out,y_n;agg=sum)
+            global loss = Flux.mse(out,y_n;agg=sum)
             return loss
         end
         for p in w
