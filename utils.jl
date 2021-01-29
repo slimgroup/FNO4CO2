@@ -1,6 +1,6 @@
 export UnitGaussianNormalizer
 
-struct UnitGaussianNormalizer
+mutable struct UnitGaussianNormalizer
     mean_ 
     std_
     eps_
