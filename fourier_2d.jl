@@ -6,23 +6,27 @@ using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
 
+CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
+CUDA.sqrt(a::Complex) = cu(sqrt(a))
+Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast(sqrt, Base.materialize(a))
+
 include("utils.jl")
 
 Random.seed!(3)
 
-mutable struct SpectralConv2d
-    weights1
-    weights2
+mutable struct SpectralConv2d{T,N}
+    weights1::AbstractArray{T,N}
+    weights2::AbstractArray{T,N}
 end
 
 @Flux.functor SpectralConv2d
 
 # Constructor
-function SpectralConv2d(in_channels, out_channels, modes1, modes2)
+function SpectralConv2d(in_channels::Integer, out_channels::Integer, modes1::Integer, modes2::Integer)
     scale = (1f0 / (in_channels * out_channels))
     weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
     weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
-    return SpectralConv2d(weights1, weights2)
+    return SpectralConv2d{Complex{Float32}, 4}(weights1, weights2)
 end
 
 function compl_mul2d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Complex{Float32}})
@@ -45,34 +49,33 @@ function (L::SpectralConv2d)(x::AbstractArray{Float32})
     x_ft = rfft(x,[1,2])
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
-    out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
-        0f0im*x_ft[modes1+1:end-modes1, 2*modes2+1:end,:,:],
-        #CUDA.zeros(Complex{Float32},size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
-        compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
+    zs = 0f0im .* view(x_ft, 1:size(x_ft, 1)-2*modes1, 1:size(x_ft, 2)-2*modes2, :, :)
+    out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1), zs,
+                 compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
     x = irfft(out_ft, size(x,1),[1,2])
 end
 
 mutable struct SimpleBlock2d
-    fc0
-    conv0
-    conv1
-    conv2
-    conv3
-    w0
-    w1
-    w2
-    w3
-    bn0
-    bn1
-    bn2
-    bn3
-    fc1
-    fc2
+    fc0::Conv
+    conv0::SpectralConv2d
+    conv1::SpectralConv2d
+    conv2::SpectralConv2d
+    conv3::SpectralConv2d
+    w0::Conv
+    w1::Conv
+    w2::Conv
+    w3::Conv
+    bn0::BatchNorm
+    bn1::BatchNorm
+    bn2::BatchNorm
+    bn3::BatchNorm
+    fc1::Conv
+    fc2::Conv
 end
 
 @Flux.functor SimpleBlock2d
 
-function SimpleBlock2d(modes1, modes2, width)
+function SimpleBlock2d(modes1::Integer, modes2::Integer, width::Integer)
     block = SimpleBlock2d(
         Conv((1, 1), 3=>width),
         SpectralConv2d(width, width, modes1, modes2),
@@ -122,7 +125,7 @@ end
 
 @Flux.functor Net2d
 
-function Net2d(modes, width)
+function Net2d(modes::Integer, width::Integer)
     return Net2d(SimpleBlock2d(modes,modes,width))
 end
 
@@ -172,7 +175,7 @@ y_train = encode(y_normalizer,y_train_)
 
 x = reshape(collect(range(0f0,stop=1f0,length=s)), :, 1)
 z = reshape(collect(range(0f0,stop=1f0,length=s)), 1, :)
-
+ 
 grid = zeros(Float32,s,s,2)
 grid[:,:,1] = repeat(z,s)
 grid[:,:,2] = repeat(x',s)'
