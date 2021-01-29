@@ -20,8 +20,8 @@ end
 # Constructor
 function SpectralConv2d(in_channels, out_channels, modes1, modes2)
     scale = (1f0 / (in_channels * out_channels))
-    weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
-    weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
+    weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
+    weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
     return SpectralConv2d(weights1, weights2)
 end
 
@@ -36,13 +36,13 @@ end
 
 function (L::SpectralConv2d)(x::AbstractArray{Float32})
     # x in (size_x, size_y, channels, batchsize)
-    x_ft = rfft(x,[2,1])
+    x_ft = rfft(x,[1,2])
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
         zeros(Complex{Float32},size(x_ft,1)-2*modes1,size(x_ft,2)-2*modes2,size(x_ft,3),size(x_ft,4)),
         compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
-    x = irfft(out_ft, size(x,2),[2,1])
+    x = irfft(out_ft, size(x,1),[1,2])
 end
 
 mutable struct SimpleBlock2d
@@ -205,8 +205,8 @@ for ep = 1:epochs
         grads = gradient(w) do
             x = x |> gpu
             y = y |> gpu
-            out = decode(y_normalizer,NN(x))    |> gpu
-            y_n = decode(y_normalizer,y)        |> gpu
+            out = decode(y_normalizer,NN(x))
+            y_n = decode(y_normalizer,y)
             global loss = Flux.mse(out,y_n;agg=sum)
             return loss
         end
