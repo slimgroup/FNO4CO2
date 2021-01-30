@@ -230,7 +230,7 @@ for ep = 1:epochs
 end
 
 NN = NN |> cpu
-w = w |> cpu
+w = convert.(Array,w) |> cpu
 sim_name = "darcy_2d"
 save_dict = @strdict epochs learning_rate step_size batch_size ntrain ntest r h s modes width w sim_name
 @tagsave(datadir(sim_name, savename(save_dict, "bson")), save_dict; safe=true)
