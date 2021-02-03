@@ -7,6 +7,7 @@ using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
 using DrWatson
+using ProgressMeter
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -48,13 +49,15 @@ end
 
 function (L::SpectralConv2d)(x::AbstractArray{Float32})
     # x in (size_x, size_y, channels, batchsize)
-    x_ft = rfft(x,[1,2])
+    x_ft = rfft(x,[2,1])
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
-    zs = 0f0im .* view(x_ft, 1:size(x_ft, 1)-2*modes1, 1:size(x_ft, 2)-2*modes2, :, :)
-    out_ft = cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1), zs,
-                 compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=(1,2))
-    x = irfft(out_ft, size(x,1),[1,2])
+    out_ft = cat(cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
+                0f0im .* view(x_ft, 1:size(x_ft, 1)-2*modes1, 1:modes2, :, :),
+                compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=1),
+                0f0im .* view(x_ft, :, 1:size(x_ft,2)-modes2, :, :),
+    )
+    x = irfft(out_ft, size(x,2),[2,1])
 end
 
 mutable struct SimpleBlock2d

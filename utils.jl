@@ -7,8 +7,8 @@ mutable struct UnitGaussianNormalizer
 end
 
 function UnitGaussianNormalizer(x;eps_=1f-5)
-    mean_ = mean(x,dims=3)
-    std_ = std(x,dims=3)
+    mean_ = mean(x,dims=length(size(x)))
+    std_ = std(x,dims=length(size(x)))
     return UnitGaussianNormalizer(mean_,std_,eps_)
 end
 
