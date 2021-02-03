@@ -151,7 +151,7 @@ end
 ntrain = 1000
 ntest = 100
 
-batch_size = 10
+batch_size = 4
 learning_rate = 1f-3
 
 epochs = 5
