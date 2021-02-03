@@ -197,10 +197,9 @@ grid[:,:,2] = repeat(z,n[1])
 x_train = zeros(Float32,n[1],n[2],nt,4,ntrain)
 x_test = zeros(Float32,n[1],n[2],nt,4,ntrain)
 
-x_train[:,:,:,1,:] = deepcopy(x_train_)
-x_test[:,:,:,1,:] = deepcopy(x_test)
-
 for i = 1:nt
+    x_train[:,:,i,1,:] = deepcopy(x_train_)
+    x_test[:,:,i,1,:] = deepcopy(x_test_)
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
