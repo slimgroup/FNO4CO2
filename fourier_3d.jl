@@ -35,7 +35,7 @@ function SpectralConv3d_fast(in_channels::Integer, out_channels::Integer, modes1
     return SpectralConv3d_fast{Complex{Float32}, 5}(weights1, weights2, weights3, weights4)
 end
 
-function compl_mul2d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Complex{Float32}})
+function compl_mul3d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Complex{Float32}})
     # complex multiplication
     # x in (modes1, modes2, modes3, input channels, batchsize)
     # y in (modes1, modes2, modes3, input channels, output channels)
