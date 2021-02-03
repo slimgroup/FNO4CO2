@@ -56,6 +56,14 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     modes3 = size(L.weights1,3)
+    println(size(compl_mul3d(x_ft[1:modes1, 1:modes2, 1:modes3, :,:], L.weights1)))
+    println(size(0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :)))
+    println(size(compl_mul3d(x_ft[1:modes1, 1:modes2, end-modes3+1:end,:,:], L.weights2)))
+    println(size(0f0im .* view(x_ft, 1:modes1, 1:size(x_ft, 1)-2*modes2, :, :, :)))
+    println(size(compl_mul3d(x_ft[1:modes1, end-modes2+1:end, 1:modes3,:,:], L.weights2)))
+    println(size(0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :)))
+    println(size(compl_mul3d(x_ft[1:modes1, end-modes2+1:end, end-modes3+1:end,:,:], L.weights2)))
+    println(size(0f0im .* view(x_ft, 1:size(x_ft)-modes1, :, :, :, :)))
     out_ft = cat(cat(cat(compl_mul3d(x_ft[1:modes1, 1:modes2, 1:modes3, :,:], L.weights1), 
                 0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :),
                 compl_mul3d(x_ft[1:modes1, 1:modes2, end-modes3+1:end,:,:], L.weights2),dims=3),
