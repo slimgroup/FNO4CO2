@@ -230,7 +230,7 @@ opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
 Loss = zeros(Float32,epochs)
 
-prog = Progress(ntrain * args.epochs)
+prog = Progress(ntrain * epochs)
 
 for ep = 1:epochs
     Base.flush(Base.stdout)
