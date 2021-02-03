@@ -64,7 +64,7 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
                 0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :),
                 compl_mul3d(x_ft[1:modes1, end-modes2+1:end, end-modes3+1:end,:,:], L.weights2),dims=3)
                 ,dims=2),
-                0f0im .* view(x_ft, 1:size(x_ft)-modes1, :, :, :),dims=1)
+                0f0im .* view(x_ft, 1:size(x_ft,1)-modes1, :, :, :, :),dims=1)
     out_ft = irfft(out_ft, size(x,1),[1,2,3])
 end
 
