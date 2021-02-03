@@ -204,10 +204,12 @@ for i = 1:nt
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
         x_train[:,:,i,4,j] .= i*dt
+    end
 
-        x_test[:,:,i,2,j] = grid[:,:,1]
-        x_test[:,:,i,3,j] = grid[:,:,2]
-        x_test[:,:,i,4,j] .= (i-1)*dt
+    for k = 1:ntest
+        x_test[:,:,i,2,k] = grid[:,:,1]
+        x_test[:,:,i,3,k] = grid[:,:,2]
+        x_test[:,:,i,4,k] .= (i-1)*dt
     end
 end
 
