@@ -92,10 +92,10 @@ end
 function SimpleBlock3d(modes1::Integer, modes2::Integer, modes3::Integer, width::Integer)
     block = SimpleBlock3d(
         Conv((1, 1), 4=>width),
-        SpectralConv2d(width, width, modes1, modes2, modes3),
-        SpectralConv2d(width, width, modes1, modes2, modes3),
-        SpectralConv2d(width, width, modes1, modes2, modes3),
-        SpectralConv2d(width, width, modes1, modes2, modes3),
+        SpectralConv3d_fast(width, width, modes1, modes2, modes3),
+        SpectralConv3d_fast(width, width, modes1, modes2, modes3),
+        SpectralConv3d_fast(width, width, modes1, modes2, modes3),
+        SpectralConv3d_fast(width, width, modes1, modes2, modes3),
         Conv((1, 1), width=>width),
         Conv((1, 1), width=>width),
         Conv((1, 1), width=>width),
