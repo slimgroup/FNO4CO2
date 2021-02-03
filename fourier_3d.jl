@@ -87,7 +87,7 @@ mutable struct SimpleBlock3d
     fc2::Conv
 end
 
-@Flux.functor SimpleBlock2d
+@Flux.functor SimpleBlock3d
 
 function SimpleBlock3d(modes1::Integer, modes2::Integer, modes3::Integer, width::Integer)
     block = SimpleBlock3d(
