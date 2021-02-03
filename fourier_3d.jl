@@ -178,7 +178,7 @@ y_train_ = convert(Array{Float32},conc[:,:,:,1:ntrain])
 y_test_ = convert(Array{Float32},conc[:,:,:,end-ntest+1:end])
 
 y_train_ = permutedims(y_train_,[2,3,1,4])
-y_test = permutedims(y_test,[2,3,1,4])
+y_test = permutedims(y_test_,[2,3,1,4])
 
 x_normalizer = UnitGaussianNormalizer(x_train_)
 x_train_ = encode(x_normalizer,x_train_)
