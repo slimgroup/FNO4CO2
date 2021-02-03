@@ -168,8 +168,8 @@ d = (15f0,15f0) # dx, dy in m
 nt = 51
 dt = 20f0    # dt in day
 
-JLD2.@load "perm.jld2"
-JLD2.@load "sample_conc.jld2"
+JLD2.@load "data/perm.jld2"
+JLD2.@load "data/sample_conc.jld2"
 
 x_train_ = convert(Array{Float32},perm[:,:,1:ntrain])
 x_test_ = convert(Array{Float32},perm[:,:,end-ntest+1:end])
