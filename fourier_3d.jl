@@ -51,8 +51,8 @@ function compl_mul2d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Comple
 end
 
 function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
-    # x in (size_x, size_y, time, channels, batchsize)
-    x_ft = rfft(x,[3,2,1])
+    # x in (size_x, size_y, time, channels, batchsize
+    x_ft = rfft(permutedims(x,[3,1,2,4,5]),[1,2,3])
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     modes3 = size(L.weights1,3)
@@ -66,7 +66,7 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
                 compl_mul3d(x_ft[end-modes1+1:end, end-modes2+1:end, 1:modes3,:,:], L.weights2),dims=1)
                 ,dims=2),
                 0f0im .* view(x_ft, :, :, 1:size(x_ft,3)-modes3, :, :),dims=3)
-    x = irfft(out_ft, size(x,3),[3,2,1])
+    out_ft = permutedims(irfft(out_ft, size(x,1),[1,2,3]),[2,3,1,4,5])
 end
 
 mutable struct SimpleBlock3d
