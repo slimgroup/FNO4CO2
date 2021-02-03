@@ -191,8 +191,8 @@ x = reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)
 z = reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :)
 
 grid = zeros(Float32,n[1],n[2],2)
-grid[:,:,1] = repeat(x',s)'
-grid[:,:,2] = repeat(z,s)
+grid[:,:,1] = repeat(x',n[2])'
+grid[:,:,2] = repeat(z,n[1])
 
 x_train = zeros(Float32,n[1],n[2],nt,4,ntrain)
 x_test = zeros(Float32,n[1],n[2],nt,4,ntrain)
