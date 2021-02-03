@@ -110,7 +110,7 @@ function SimpleBlock3d(modes1::Integer, modes2::Integer, modes3::Integer, width:
     return block
 end
 
-function (B::SimpleBlock2d)(x::AbstractArray{Float32})
+function (B::SimpleBlock3d)(x::AbstractArray{Float32})
     x = B.fc0(x)
     x1 = B.conv0(x)
     x2 = B.w0(x)
