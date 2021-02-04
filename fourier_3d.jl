@@ -253,9 +253,9 @@ for ep = 1:epochs
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
             global loss = Flux.mse(out,y_n;agg=sum)
-            Loss[iter] = loss
             return loss
         end
+        Loss[iter] = loss
         for p in w
             Flux.Optimise.update!(opt, p, grads[p])
         end
