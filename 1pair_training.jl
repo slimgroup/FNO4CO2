@@ -250,6 +250,7 @@ for ep = 1:epochs
         global loss = Flux.mse(out,y_n;agg=sum)
         return loss
     end
+    global iter = iter+1
     Loss[iter] = loss
     for p in w
         Flux.Optimise.update!(opt, p, grads[p])
