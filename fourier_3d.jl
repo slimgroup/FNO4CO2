@@ -28,14 +28,14 @@ end
 # Constructor
 function SpectralConv3d_fast(in_channels::Integer, out_channels::Integer, modes1::Integer, modes2::Integer, modes3::Integer)
     scale = (1f0 / (in_channels * out_channels))
-    #weights1 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    #weights2 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    #weights3 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    #weights4 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    weights1 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-    weights2 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-    weights3 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-    weights4 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    weights1 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    weights2 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    weights3 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    weights4 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    #weights1 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    #weights2 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    #weights3 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    #weights4 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
     return SpectralConv3d_fast{Complex{Float32}, 5}(weights1, weights2, weights3, weights4)
 end
 
@@ -166,10 +166,12 @@ modes = 4
 width = 20
 
 n = (64,64)
-d = (15f0,15f0) # dx, dy in m
+#d = (15f0,15f0) # dx, dy in m
+d = (1f0/64, 1f0/64)
 
 nt = 51
-dt = 20f0    # dt in day
+#dt = 20f0    # dt in day
+dt = 1f0/nt
 
 perm = matread("data/perm.mat")["perm"]
 conc = matread("data/conc.mat")["conc"]
@@ -221,16 +223,16 @@ end
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
 
-#y_normalizer.mean_ = y_normalizer.mean_ |> gpu
-#y_normalizer.std_ = y_normalizer.std_   |> gpu
-#y_normalizer.eps_ = y_normalizer.eps_   |> gpu
+y_normalizer.mean_ = y_normalizer.mean_ |> gpu
+y_normalizer.std_ = y_normalizer.std_   |> gpu
+y_normalizer.eps_ = y_normalizer.eps_   |> gpu
 
-y_normalizer.mean_ = y_normalizer.mean_
-y_normalizer.std_ = y_normalizer.std_
-y_normalizer.eps_ = y_normalizer.eps_
+#y_normalizer.mean_ = y_normalizer.mean_
+#y_normalizer.std_ = y_normalizer.std_
+#y_normalizer.eps_ = y_normalizer.eps_
 
-#NN = Net3d(modes, width) |> gpu
-NN = Net3d(modes, width)
+NN = Net3d(modes, width) |> gpu
+#NN = Net3d(modes, width)
 
 w = Flux.params(NN)
 Flux.trainmode!(NN, true)
@@ -241,11 +243,11 @@ Loss = zeros(Float32,epochs)
 prog = Progress(ntrain * epochs)
 
 for ep = 1:epochs
-    #Base.flush(Base.stdout)
+    Base.flush(Base.stdout)
     for (x,y) in train_loader
         grads = gradient(w) do
-            #x = x |> gpu
-            #y = y |> gpu
+            x = x |> gpu
+            y = y |> gpu
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
             global loss = Flux.mse(out,y_n;agg=sum)
