@@ -215,11 +215,7 @@ end
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
 
-#NN = Net3d(modes, width) |> gpu
-NN = Net3d(modes, width)
-
-w = Flux.params(NN)
-Flux.trainmode!(NN, true)
+Flux.testmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
 figure();plot(Loss);xlabel("iterations");ylabel("Loss");title("Loss history on training batch")
