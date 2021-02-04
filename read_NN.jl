@@ -155,16 +155,7 @@ end
 ntrain = 1000
 ntest = 100
 
-batch_size = 10
-learning_rate = 1f-4
-
-epochs = 200
-step_size = 100
-gamma = 5f-1
-
-modes = 4
-width = 20
-
+BSON.@load "2phasenet_100.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size
 
 n = (64,64)
 #d = (15f0,15f0) # dx, dy in m
@@ -224,14 +215,6 @@ end
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
 
-#y_normalizer.mean_ = y_normalizer.mean_ |> gpu
-#y_normalizer.std_ = y_normalizer.std_   |> gpu
-#y_normalizer.eps_ = y_normalizer.eps_   |> gpu
-
-y_normalizer.mean_ = y_normalizer.mean_
-y_normalizer.std_ = y_normalizer.std_
-y_normalizer.eps_ = y_normalizer.eps_
-
 #NN = Net3d(modes, width) |> gpu
 NN = Net3d(modes, width)
 
@@ -239,26 +222,83 @@ w = Flux.params(NN)
 Flux.trainmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
-BSON.@load "2phasenet.bson"
+figure();plot(Loss);xlabel("iterations");ylabel("Loss");title("Loss history on training batch")
 
+savefig("loss_$epochs.png")
 Flux.testmode!(NN, true)
-
-y_normalizer.mean_ = y_normalizer.mean_ |> cpu
-y_normalizer.std_ = y_normalizer.std_   |> cpu
-y_normalizer.eps_ = y_normalizer.eps_   |> cpu
-
 
 x_test_1 = x_test[:,:,:,:,1:1]
 x_test_2 = x_test[:,:,:,:,2:2]
 x_test_3 = x_test[:,:,:,:,3:3]
 
+x_train_1 = x_train[:,:,:,:,1:1]
+x_train_2 = x_train[:,:,:,:,2:2]
+x_train_3 = x_train[:,:,:,:,3:3]
+
 y_test_1 = y_test[:,:,:,1]
 y_test_2 = y_test[:,:,:,2]
 y_test_3 = y_test[:,:,:,3]
 
+y_train_1 = decode(y_normalizer,y_train)[:,:,:,1]
+y_train_2 = decode(y_normalizer,y_train)[:,:,:,2]
+y_train_3 = decode(y_normalizer,y_train)[:,:,:,3]
+
 y_predict_1 = decode(y_normalizer,NN(x_test_1))[:,:,:,1]
 y_predict_2 = decode(y_normalizer,NN(x_test_2))[:,:,:,1]
 y_predict_3 = decode(y_normalizer,NN(x_test_3))[:,:,:,1]
+
+y_fit_1 = decode(y_normalizer,NN(x_train_1))[:,:,:,1]
+y_fit_2 = decode(y_normalizer,NN(x_train_2))[:,:,:,1]
+y_fit_3 = decode(y_normalizer,NN(x_train_3))[:,:,:,1]
+
+# fit on training
+
+figure(figsize=(15,15));
+for i = 1:9
+    subplot(7,3,i);
+    imshow(y_fit_1[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(7,3,i+9);
+    imshow(y_train_1[:,:,6*i-5],vmin=0,vmax=1);
+end
+subplot(7,3,19);
+imshow(decode(x_normalizer,x_train_1)[:,:,1,1,1],vmin=20,vmax=120)
+suptitle("training sample 1 predict VS ground truth")
+
+savefig("result/2phase_trainsample1.png")
+
+figure(figsize=(15,15));
+for i = 1:9
+    subplot(7,3,i);
+    imshow(y_fit_2[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(7,3,i+9);
+    imshow(y_train_2[:,:,6*i-5],vmin=0,vmax=1);
+end
+subplot(7,3,19);
+imshow(decode(x_normalizer,x_train_2)[:,:,1,1,1],vmin=20,vmax=120)
+suptitle("training sample 2 predict VS ground truth")
+
+savefig("result/2phase_trainsample2.png")
+
+figure(figsize=(15,15));
+for i = 1:9
+    subplot(7,3,i);
+    imshow(y_fit_3[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(7,3,i+9);
+    imshow(y_train_3[:,:,6*i-5],vmin=0,vmax=1);
+end
+subplot(7,3,19);
+imshow(decode(x_normalizer,x_train_3)[:,:,1,1,1],vmin=20,vmax=120)
+suptitle("training sample 3 predict VS ground truth")
+
+savefig("result/2phase_trainsample3.png")
+
+# test on test set
 
 figure(figsize=(15,15));
 for i = 1:9
@@ -271,9 +311,9 @@ for i = 1:9
 end
 subplot(7,3,19);
 imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("sample 1 predict VS ground truth")
+suptitle("test sample 1 predict VS ground truth")
 
-savefig("result/2phase_sample1.png")
+savefig("result/2phase_testsample1.png")
 
 figure(figsize=(15,15));
 for i = 1:9
@@ -286,9 +326,9 @@ for i = 1:9
 end
 subplot(7,3,19);
 imshow(decode(x_normalizer,x_test_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("sample 2 predict VS ground truth")
+suptitle("test sample 2 predict VS ground truth")
 
-savefig("result/2phase_sample2.png")
+savefig("result/2phase_testsample2.png")
 
 figure(figsize=(15,15));
 for i = 1:9
@@ -301,7 +341,7 @@ for i = 1:9
 end
 subplot(7,3,19);
 imshow(decode(x_normalizer,x_test_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("sample 3 predict VS ground truth")
+suptitle("test sample 3 predict VS ground truth")
 
-savefig("result/2phase_sample3.png")
+savefig("result/2phase_testsample3.png")
 
