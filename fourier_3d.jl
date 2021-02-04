@@ -265,7 +265,7 @@ NN = NN |> cpu
 w = convert.(Array,w) |> cpu
 sim_name = "2phase"
 
-BSON.@save
+BSON.@save "2phasenet.bson" NN w batch_size Loss modes width learning_rate epochs
 save_dict = @strdict epochs learning_rate step_size batch_size ntrain ntest r h s modes width w sim_name
 @tagsave(datadir(sim_name, savename(save_dict, "bson")), save_dict; safe=true)
 
