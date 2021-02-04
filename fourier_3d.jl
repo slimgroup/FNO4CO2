@@ -167,8 +167,8 @@ d = (15f0,15f0) # dx, dy in m
 nt = 51
 dt = 20f0    # dt in day
 
-perm = matread("data/perm.jld2")["perm"]
-conc = matread("data/conc.jld2")["conc"]
+perm = matread("data/perm.mat")["perm"]
+conc = matread("data/conc.mat")["conc"]
 
 x_train_ = convert(Array{Float32},perm[:,:,1:ntrain])
 x_test_ = convert(Array{Float32},perm[:,:,end-ntest+1:end])
