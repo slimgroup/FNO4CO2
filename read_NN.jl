@@ -220,7 +220,7 @@ opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
 figure();plot(Loss);xlabel("iterations");ylabel("Loss");title("Loss history on training batch")
 
-savefig("loss_$epochs.png")
+savefig("result/loss_$epochs.png")
 Flux.testmode!(NN, true)
 
 x_test_1 = x_test[:,:,:,:,1:1]
@@ -251,93 +251,119 @@ y_fit_3 = decode(y_normalizer,NN(x_train_3))[:,:,:,1]
 
 figure(figsize=(15,15));
 for i = 1:9
-    subplot(7,3,i);
+    subplot(4,9,i);
     imshow(y_fit_1[:,:,6*i-5],vmin=0,vmax=1);
 end
 for i = 1:9
-    subplot(7,3,i+9);
+    subplot(4,9,i+9);
     imshow(y_train_1[:,:,6*i-5],vmin=0,vmax=1);
 end
-subplot(7,3,19);
+for i = 1:9
+    subplot(4,9,i+18);
+    imshow(20*(y_train_1[:,:,6*i-5]-y_fit_1[:,:,6*i-5]),vmin=0,vmax=1);
+end
+subplot(4,9,28);
 imshow(decode(x_normalizer,x_train_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("training sample 1 predict VS ground truth")
+suptitle("Training sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
 savefig("result/2phase_trainsample1.png")
 
 figure(figsize=(15,15));
 for i = 1:9
-    subplot(7,3,i);
+    subplot(4,9,i);
     imshow(y_fit_2[:,:,6*i-5],vmin=0,vmax=1);
 end
 for i = 1:9
-    subplot(7,3,i+9);
+    subplot(4,9,i+9);
     imshow(y_train_2[:,:,6*i-5],vmin=0,vmax=1);
 end
-subplot(7,3,19);
+for i = 1:9
+    subplot(4,9,i+18);
+    imshow(20*(y_train_2[:,:,6*i-5]-y_fit_2[:,:,6*i-5]),vmin=0,vmax=1);
+end
+subplot(4,9,28);
 imshow(decode(x_normalizer,x_train_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("training sample 2 predict VS ground truth")
+suptitle("Training sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
 savefig("result/2phase_trainsample2.png")
 
 figure(figsize=(15,15));
 for i = 1:9
-    subplot(7,3,i);
+    subplot(4,9,i);
     imshow(y_fit_3[:,:,6*i-5],vmin=0,vmax=1);
 end
 for i = 1:9
-    subplot(7,3,i+9);
+    subplot(4,9,i+9);
     imshow(y_train_3[:,:,6*i-5],vmin=0,vmax=1);
 end
-subplot(7,3,19);
+for i = 1:9
+    subplot(4,9,i+18);
+    imshow(20*(y_train_3[:,:,6*i-5]-y_fit_3[:,:,6*i-5]),vmin=0,vmax=1);
+end
+subplot(4,9,28);
 imshow(decode(x_normalizer,x_train_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("training sample 3 predict VS ground truth")
+suptitle("Training sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
 savefig("result/2phase_trainsample3.png")
 
 # test on test set
 
 figure(figsize=(15,15));
+
 for i = 1:9
-    subplot(7,3,i);
+    subplot(4,9,i);
     imshow(y_predict_1[:,:,6*i-5],vmin=0,vmax=1);
 end
 for i = 1:9
-    subplot(7,3,i+9);
+    subplot(4,9,i+9);
     imshow(y_test_1[:,:,6*i-5],vmin=0,vmax=1);
 end
-subplot(7,3,19);
+for i = 1:9
+    subplot(4,9,i+18);
+    imshow(20*(y_test_1[:,:,6*i-5]-y_predict_1[:,:,6*i-5]),vmin=0,vmax=1);
+end
+subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("test sample 1 predict VS ground truth")
+suptitle("Test sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
 savefig("result/2phase_testsample1.png")
 
 figure(figsize=(15,15));
+
 for i = 1:9
-    subplot(7,3,i);
+    subplot(4,9,i);
     imshow(y_predict_2[:,:,6*i-5],vmin=0,vmax=1);
 end
 for i = 1:9
-    subplot(7,3,i+9);
+    subplot(4,9,i+9);
     imshow(y_test_2[:,:,6*i-5],vmin=0,vmax=1);
 end
-subplot(7,3,19);
+for i = 1:9
+    subplot(4,9,i+18);
+    imshow(20*(y_test_2[:,:,6*i-5]-y_predict_2[:,:,6*i-5]),vmin=0,vmax=1);
+end
+subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("test sample 2 predict VS ground truth")
+suptitle("Test sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
 savefig("result/2phase_testsample2.png")
 
 figure(figsize=(15,15));
+
 for i = 1:9
-    subplot(7,3,i);
+    subplot(4,9,i);
     imshow(y_predict_3[:,:,6*i-5],vmin=0,vmax=1);
 end
 for i = 1:9
-    subplot(7,3,i+9);
+    subplot(4,9,i+9);
     imshow(y_test_3[:,:,6*i-5],vmin=0,vmax=1);
 end
-subplot(7,3,19);
+for i = 1:9
+    subplot(4,9,i+18);
+    imshow(20*(y_test_3[:,:,6*i-5]-y_predict_3[:,:,6*i-5]),vmin=0,vmax=1);
+end
+subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("test sample 3 predict VS ground truth")
+suptitle("Test sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
 savefig("result/2phase_testsample3.png")
-
