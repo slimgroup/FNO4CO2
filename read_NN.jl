@@ -28,14 +28,14 @@ end
 # Constructor
 function SpectralConv3d_fast(in_channels::Integer, out_channels::Integer, modes1::Integer, modes2::Integer, modes3::Integer)
     scale = (1f0 / (in_channels * out_channels))
-    weights1 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    weights2 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    weights3 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    weights4 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
-    #weights1 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-    #weights2 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-    #weights3 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-    #weights4 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    #weights1 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    #weights2 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    #weights3 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    #weights4 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
+    weights1 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    weights2 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    weights3 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+    weights4 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
     return SpectralConv3d_fast{Complex{Float32}, 5}(weights1, weights2, weights3, weights4)
 end
 
@@ -155,16 +155,6 @@ end
 ntrain = 1000
 ntest = 100
 
-batch_size = 10
-learning_rate = 1f-4
-
-epochs = 200
-step_size = 100
-gamma = 5f-1
-
-modes = 4
-width = 20
-
 n = (64,64)
 #d = (15f0,15f0) # dx, dy in m
 d = (1f0/64, 1f0/64)
@@ -223,45 +213,84 @@ end
 train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
 test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
 
-y_normalizer.mean_ = y_normalizer.mean_ |> gpu
-y_normalizer.std_ = y_normalizer.std_   |> gpu
-y_normalizer.eps_ = y_normalizer.eps_   |> gpu
+#y_normalizer.mean_ = y_normalizer.mean_ |> gpu
+#y_normalizer.std_ = y_normalizer.std_   |> gpu
+#y_normalizer.eps_ = y_normalizer.eps_   |> gpu
 
-#y_normalizer.mean_ = y_normalizer.mean_
-#y_normalizer.std_ = y_normalizer.std_
-#y_normalizer.eps_ = y_normalizer.eps_
+y_normalizer.mean_ = y_normalizer.mean_
+y_normalizer.std_ = y_normalizer.std_
+y_normalizer.eps_ = y_normalizer.eps_
 
-NN = Net3d(modes, width) |> gpu
-#NN = Net3d(modes, width)
+#NN = Net3d(modes, width) |> gpu
+NN = Net3d(modes, width)
 
 w = Flux.params(NN)
 Flux.trainmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
-Loss = zeros(Float32,epochs)
+BSON.@load "2phasenet.bson"
 
-prog = Progress(ntrain * epochs)
+Flux.testmode!(NN, true)
 
-for ep = 1:epochs
-    Base.flush(Base.stdout)
-    for (x,y) in train_loader
-        grads = gradient(w) do
-            x = x |> gpu
-            y = y |> gpu
-            out = decode(y_normalizer,NN(x))
-            y_n = decode(y_normalizer,y)
-            global loss = Flux.mse(out,y_n;agg=sum)
-            return loss
-        end
-        for p in w
-            Flux.Optimise.update!(opt, p, grads[p])
-        end
-        ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep)])
-    end
-    Loss[ep] = loss
+y_normalizer.mean_ = y_normalizer.mean_ |> cpu
+y_normalizer.std_ = y_normalizer.std_   |> cpu
+y_normalizer.eps_ = y_normalizer.eps_   |> cpu
+
+
+x_test_1 = x_test[:,:,:,:,1:1]
+x_test_2 = x_test[:,:,:,:,2:2]
+x_test_3 = x_test[:,:,:,:,3:3]
+
+y_test_1 = y_test[:,:,:,1]
+y_test_2 = y_test[:,:,:,2]
+y_test_3 = y_test[:,:,:,3]
+
+y_predict_1 = decode(y_normalizer,NN(x_test_1))[:,:,:,1]
+y_predict_2 = decode(y_normalizer,NN(x_test_2))[:,:,:,1]
+y_predict_3 = decode(y_normalizer,NN(x_test_3))[:,:,:,1]
+
+figure(figsize=(15,15));
+for i = 1:9
+    subplot(7,3,i);
+    imshow(y_predict_1[:,:,6*i-5],vmin=0,vmax=1);
 end
+for i = 1:9
+    subplot(7,3,i+9);
+    imshow(y_test_1[:,:,6*i-5],vmin=0,vmax=1);
+end
+subplot(7,3,19);
+imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120)
+suptitle("sample 1 predict VS ground truth")
 
-NN = NN |> cpu
-w = convert.(Array,w) |> cpu
+savefig("result/2phase_sample1.png")
 
-BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs
+figure(figsize=(15,15));
+for i = 1:9
+    subplot(7,3,i);
+    imshow(y_predict_2[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(7,3,i+9);
+    imshow(y_test_2[:,:,6*i-5],vmin=0,vmax=1);
+end
+subplot(7,3,19);
+imshow(decode(x_normalizer,x_test_2)[:,:,1,1,1],vmin=20,vmax=120)
+suptitle("sample 2 predict VS ground truth")
+
+savefig("result/2phase_sample2.png")
+
+figure(figsize=(15,15));
+for i = 1:9
+    subplot(7,3,i);
+    imshow(y_predict_3[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(7,3,i+9);
+    imshow(y_test_3[:,:,6*i-5],vmin=0,vmax=1);
+end
+subplot(7,3,19);
+imshow(decode(x_normalizer,x_test_3)[:,:,1,1,1],vmin=20,vmax=120)
+suptitle("sample 3 predict VS ground truth")
+
+savefig("result/2phase_sample3.png")
+
