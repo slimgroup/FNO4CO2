@@ -125,7 +125,7 @@ function (B::SimpleBlock2d)(x::AbstractArray{Float32})
 end
 
 mutable struct Net2d
-    conv1
+    conv1::SimpleBlock2d
 end
 
 @Flux.functor Net2d

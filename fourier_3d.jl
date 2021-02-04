@@ -133,7 +133,7 @@ function (B::SimpleBlock3d)(x::AbstractArray{Float32})
 end
 
 mutable struct Net3d
-    conv1
+    conv1::SimpleBlock3d
 end
 
 @Flux.functor Net3d
