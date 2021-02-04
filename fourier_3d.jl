@@ -238,19 +238,22 @@ w = Flux.params(NN)
 Flux.trainmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
-Loss = zeros(Float32,epochs)
+Loss = zeros(Float32,epochs*Int(ntrain/batch_size))
 
 prog = Progress(ntrain * epochs)
 
+iter = 0
 for ep = 1:epochs
     Base.flush(Base.stdout)
     for (x,y) in train_loader
+        global iter = iter + 1
         grads = gradient(w) do
             x = x |> gpu
             y = y |> gpu
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
             global loss = Flux.mse(out,y_n;agg=sum)
+            Loss[iter] = loss
             return loss
         end
         for p in w
@@ -258,10 +261,9 @@ for ep = 1:epochs
         end
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep)])
     end
-    Loss[ep] = loss
 end
 
 NN = NN |> cpu
 w = convert.(Array,w) |> cpu
 
-BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs
+BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size

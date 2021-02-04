@@ -155,6 +155,17 @@ end
 ntrain = 1000
 ntest = 100
 
+batch_size = 10
+learning_rate = 1f-4
+
+epochs = 200
+step_size = 100
+gamma = 5f-1
+
+modes = 4
+width = 20
+
+
 n = (64,64)
 #d = (15f0,15f0) # dx, dy in m
 d = (1f0/64, 1f0/64)
