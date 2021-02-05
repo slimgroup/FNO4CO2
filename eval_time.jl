@@ -7,6 +7,7 @@ using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter, JLD2
+using Images
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -169,20 +170,15 @@ perm = matread("data/perm.mat")["perm"]
 conc = matread("data/conc.mat")["conc"]
 
 x_train_ = convert(Array{Float32},perm[:,:,1:ntrain])
-x_test_ = convert(Array{Float32},perm[:,:,end-ntest+1:end])
 
 y_train_ = convert(Array{Float32},conc[:,:,:,1:ntrain])
-y_test_ = convert(Array{Float32},conc[:,:,:,end-ntest+1:end])
 
 y_train_ = permutedims(y_train_,[2,3,1,4])
-y_test = permutedims(y_test_,[2,3,1,4])
 
 x_normalizer = UnitGaussianNormalizer(x_train_)
 x_train_ = encode(x_normalizer,x_train_)
-x_test_ = encode(x_normalizer,x_test_)
 
 y_normalizer = UnitGaussianNormalizer(y_train_)
-y_train = encode(y_normalizer,y_train_)
 
 x = reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)
 z = reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :)
@@ -192,44 +188,38 @@ grid[:,:,1] = repeat(x',n[2])'
 grid[:,:,2] = repeat(z,n[1])
 
 x_train = zeros(Float32,n[1],n[2],nt,4,ntrain)
-x_test = zeros(Float32,n[1],n[2],nt,4,ntest)
 
 for i = 1:nt
     x_train[:,:,i,1,:] = deepcopy(x_train_)
-    x_test[:,:,i,1,:] = deepcopy(x_test_)
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
         x_train[:,:,i,4,j] .= i*dt
     end
-
-    for k = 1:ntest
-        x_test[:,:,i,2,k] = grid[:,:,1]
-        x_test[:,:,i,3,k] = grid[:,:,2]
-        x_test[:,:,i,4,k] .= (i-1)*dt
-    end
 end
 
 # value, x, y, t
 
-train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
-test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
-
-Flux.testmode!(NN, true)
-opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
-
-Flux.testmode!(NN, true)
-
 compute_time = 0f0
 
+x_train_new = zeros(Float32,2000,2000,51,4,1000)
+for i = 1:51
+    for j = 1:4
+        for k  = 1:1000
+            x_train_new[:,:,i,j,k] = imresize(x_train[:,:,i,j,k])
+        end
+    end
+end
 run_samples = 100
 for i = 1:run_samples
+    in_sample = x_train_new[:,:,:,:,i:i]
     start_time = time();
-    y_out = decode(y_normalizer,NN(x_train[:,:,:,:,i:i]));
+    @time out_sample = NN(in_sample)
     end_time = time();
+    y_out = decode(y_normalizer,out_sample);
     run_time = end_time-start_time
-    println(run_time)
+    #println(run_time)
     global compute_time += run_time
 end
 
-println("Average time over", run_samples, " samples = ", compute_time/ntrain, " seconds")
+println("Average time over ", run_samples, " samples = ", compute_time/run_samples, " seconds")
