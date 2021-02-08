@@ -144,7 +144,7 @@ ntest = 100
 batch_size = 20
 learning_rate = 1f-3
 
-epochs = 200
+epochs = 100
 step_size = 100
 gamma = 5f-1
 
