@@ -7,6 +7,7 @@ using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter, JLD2
+using Images
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -206,102 +207,57 @@ for i = 1:nt
     for k = 1:ntest
         x_test[:,:,i,2,k] = grid[:,:,1]
         x_test[:,:,i,3,k] = grid[:,:,2]
-        x_test[:,:,i,4,k] .= (i-1)*dt
+        x_test[:,:,i,4,k] .= i*dt
     end
 end
 
 # value, x, y, t
 
-train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
-test_loader = Flux.Data.DataLoader((x_test, y_test); batchsize = batch_size, shuffle = false)
-
-figure();plot(Loss);xlabel("iterations");ylabel("Loss");title("Loss history on training batch")
-
-savefig("result/loss_$epochs.png")
 Flux.testmode!(NN, true)
 
 x_test_1 = x_test[:,:,:,:,1:1]
 x_test_2 = x_test[:,:,:,:,2:2]
 x_test_3 = x_test[:,:,:,:,3:3]
 
-x_train_1 = x_train[:,:,:,:,1:1]
-x_train_2 = x_train[:,:,:,:,2:2]
-x_train_3 = x_train[:,:,:,:,3:3]
-
 y_test_1 = y_test[:,:,:,1]
 y_test_2 = y_test[:,:,:,2]
 y_test_3 = y_test[:,:,:,3]
-
-y_train_1 = decode(y_normalizer,y_train)[:,:,:,1]
-y_train_2 = decode(y_normalizer,y_train)[:,:,:,2]
-y_train_3 = decode(y_normalizer,y_train)[:,:,:,3]
 
 y_predict_1 = decode(y_normalizer,NN(x_test_1))[:,:,:,1]
 y_predict_2 = decode(y_normalizer,NN(x_test_2))[:,:,:,1]
 y_predict_3 = decode(y_normalizer,NN(x_test_3))[:,:,:,1]
 
-y_fit_1 = decode(y_normalizer,NN(x_train_1))[:,:,:,1]
-y_fit_2 = decode(y_normalizer,NN(x_train_2))[:,:,:,1]
-y_fit_3 = decode(y_normalizer,NN(x_train_3))[:,:,:,1]
+up_x = up_y = 4
+up_t = 1
 
-# fit on training
+x_test_up = zeros(Float32,up_x*n[1],up_y*n[2],up_t*nt,4,ntest)
 
-figure(figsize=(15,15));
-for i = 1:9
-    subplot(4,9,i);
-    imshow(y_fit_1[:,:,6*i-5],vmin=0,vmax=1);
+for i = 1:nt*up_t
+    for k = 1:ntest
+        x_test_up[:,:,i,1,k] = imresize(x_test_[:,:,k],up_x*n[1],up_y*n[2])
+        x_test_up[:,:,i,2,k] = imresize(grid[:,:,1],up_x*n[1],up_y*n[2])
+        x_test_up[:,:,i,3,k] = imresize(grid[:,:,2],up_x*n[1],up_y*n[2])
+        x_test_up[:,:,i,4,k] .= i*dt
+    end
 end
-for i = 1:9
-    subplot(4,9,i+9);
-    imshow(y_train_1[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+18);
-    imshow(20*(y_train_1[:,:,6*i-5]-y_fit_1[:,:,6*i-5]),vmin=0,vmax=1);
-end
-subplot(4,9,28);
-imshow(decode(x_normalizer,x_train_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Training sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
 
-savefig("result/2phase_trainsample1.png")
+x_test_up_1 = x_test_up[:,:,:,:,1:1]
+x_test_up_2 = x_test_up[:,:,:,:,2:2]
+x_test_up_3 = x_test_up[:,:,:,:,3:3]
 
-figure(figsize=(15,15));
-for i = 1:9
-    subplot(4,9,i);
-    imshow(y_fit_2[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+9);
-    imshow(y_train_2[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+18);
-    imshow(20*(y_train_2[:,:,6*i-5]-y_fit_2[:,:,6*i-5]),vmin=0,vmax=1);
-end
-subplot(4,9,28);
-imshow(decode(x_normalizer,x_train_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Training sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+new_mean = zeros(Float32,up_x*n[1],up_y*n[2],up_t*nt,1)
+new_std = zeros(Float32,up_x*n[1],up_y*n[2],up_t*nt,1)
 
-savefig("result/2phase_trainsample2.png")
+for i = 1:up_t*nt
+    new_mean[:,:,i,1] = imresize(y_normalizer.mean_[:,:,i,1],up_x*n[1],up_y*n[2])
+    new_std[:,:,i,1] = imresize(y_normalizer.std_[:,:,i,1],up_x*n[1],up_y*n[2])
+end
 
-figure(figsize=(15,15));
-for i = 1:9
-    subplot(4,9,i);
-    imshow(y_fit_3[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+9);
-    imshow(y_train_3[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+18);
-    imshow(20*(y_train_3[:,:,6*i-5]-y_fit_3[:,:,6*i-5]),vmin=0,vmax=1);
-end
-subplot(4,9,28);
-imshow(decode(x_normalizer,x_train_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Training sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+y_normalizer_up = UnitGaussianNormalizer(new_mean,new_std,y_normalizer.eps_)
 
-savefig("result/2phase_trainsample3.png")
+y_predict_up_1 = decode(y_normalizer_up,NN(x_test_up_1))[:,:,:,1]
+y_predict_up_2 = decode(y_normalizer_up,NN(x_test_up_2))[:,:,:,1]
+y_predict_up_3 = decode(y_normalizer_up,NN(x_test_up_3))[:,:,:,1]
 
 # test on test set
 
@@ -317,50 +273,10 @@ for i = 1:9
 end
 for i = 1:9
     subplot(4,9,i+18);
-    imshow(20*(y_test_1[:,:,6*i-5]-y_predict_1[:,:,6*i-5]),vmin=0,vmax=1);
+    imshow(y_predict_up_1[:,:,6*i-5],vmin=0,vmax=1);
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Test sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("Test sample 1: 1st row predict; 2nd row grond truth; 3rd row upsample predict; last row permeability")
 
-savefig("result/2phase_testsample1.png")
-
-figure(figsize=(15,15));
-
-for i = 1:9
-    subplot(4,9,i);
-    imshow(y_predict_2[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+9);
-    imshow(y_test_2[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+18);
-    imshow(20*(y_test_2[:,:,6*i-5]-y_predict_2[:,:,6*i-5]),vmin=0,vmax=1);
-end
-subplot(4,9,28);
-imshow(decode(x_normalizer,x_test_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Test sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
-
-savefig("result/2phase_testsample2.png")
-
-figure(figsize=(15,15));
-
-for i = 1:9
-    subplot(4,9,i);
-    imshow(y_predict_3[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+9);
-    imshow(y_test_3[:,:,6*i-5],vmin=0,vmax=1);
-end
-for i = 1:9
-    subplot(4,9,i+18);
-    imshow(20*(y_test_3[:,:,6*i-5]-y_predict_3[:,:,6*i-5]),vmin=0,vmax=1);
-end
-subplot(4,9,28);
-imshow(decode(x_normalizer,x_test_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Test sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
-
-savefig("result/2phase_testsample3.png")
+#savefig("result/2phase_upsample1.png")

@@ -202,7 +202,7 @@ end
 
 compute_time = 0f0
 
-x_train_new = zeros(Float32,1000,1000,51,4,1000)
+x_train_new = zeros(Float32,200,200,51,4,1000)
 for i = 1:51
     for j = 1:4
         for k  = 1:1000

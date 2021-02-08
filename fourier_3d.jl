@@ -208,7 +208,7 @@ for i = 1:nt
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
-        x_train[:,:,i,4,j] .= i*dt
+        x_train[:,:,i,4,j] .= (i-1)*dt
     end
 
     for k = 1:ntest
