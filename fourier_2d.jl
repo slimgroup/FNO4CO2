@@ -49,15 +49,14 @@ end
 
 function (L::SpectralConv2d)(x::AbstractArray{Float32})
     # x in (size_x, size_y, channels, batchsize)
-    x_ft = rfft(x,[2,1])
+    x_ft = rfft(x,[1,2])
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     out_ft = cat(cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
-                0f0im .* view(x_ft, 1:size(x_ft, 1)-2*modes1, 1:modes2, :, :),
-                compl_mul2d(x_ft[end-modes1+1:end, 1:modes2,:,:], L.weights2),dims=1),
-                0f0im .* view(x_ft, :, 1:size(x_ft,2)-modes2, :, :),
-    )
-    x = irfft(out_ft, size(x,2),[2,1])
+                0f0im .* view(x_ft, 1:modes1, 1:size(x_ft,2)-2*modes2, :, :),
+                compl_mul2d(x_ft[1:modes1, end-modes2+1:end,:,:], L.weights2),dims=2),
+                0f0im .* view(x_ft, 1:size(x_ft,1)-modes1, :, :, :),dims=1)
+    x = irfft(out_ft, size(x,2),[1,2])
 end
 
 mutable struct SimpleBlock2d
@@ -213,9 +212,14 @@ w = Flux.params(NN)
 Flux.trainmode!(NN, true)
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
-Loss = zeros(Float32,epochs)
+prog = Progress(ntrain * epochs)
+
+Loss = zeros(Float32,epochs*Int(ntrain/batch_size))
+
+iter = 0
 for ep = 1:epochs
     for (x,y) in train_loader
+        global iter = iter + 1
         grads = gradient(w) do
             x = x |> gpu
             y = y |> gpu
@@ -224,68 +228,15 @@ for ep = 1:epochs
             global loss = Flux.mse(out,y_n;agg=sum)
             return loss
         end
+        Loss[iter] = loss
         for p in w
             Flux.Optimise.update!(opt, p, grads[p])
         end
+        ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep)])
     end
-    println(" Epoch: ", ep, " | Objective = ", loss)
-    Loss[ep] = loss
 end
 
 NN = NN |> cpu
 w = convert.(Array,w) |> cpu
-sim_name = "darcy_2d"
-save_dict = @strdict epochs learning_rate step_size batch_size ntrain ntest r h s modes width w sim_name
-@tagsave(datadir(sim_name, savename(save_dict, "bson")), save_dict; safe=true)
 
-figure();plot(Loss);title("History");xlabel("Epochs");ylabel("Loss")
-
-Flux.testmode!(NN, true)
-
-y_normalizer.mean_ = y_normalizer.mean_ |> cpu
-y_normalizer.std_ = y_normalizer.std_   |> cpu
-y_normalizer.eps_ = y_normalizer.eps_   |> cpu
-
-
-x_test_1 = x_test[:,:,:,1:1]
-x_test_2 = x_test[:,:,:,2:2]
-x_test_3 = x_test[:,:,:,3:3]
-
-y_test_1 = y_test[:,:,1]
-y_test_2 = y_test[:,:,2]
-y_test_3 = y_test[:,:,3]
-
-y_predict_1 = decode(y_normalizer,NN(x_test_1))[:,:,1]
-y_predict_2 = decode(y_normalizer,NN(x_test_2))[:,:,1]
-y_predict_3 = decode(y_normalizer,NN(x_test_3))[:,:,1]
-
-figure(figsize=(9,9));
-subplot(3,3,1);
-title("sample 1")
-imshow(x_test_1[:,:,1])
-subplot(3,3,2);
-title("sample 2")
-imshow(x_test_2[:,:,1])
-subplot(3,3,3);
-title("sample 3")
-imshow(x_test_3[:,:,1])
-subplot(3,3,4);
-title("predict 1")
-imshow(y_predict_1)
-subplot(3,3,5);
-title("predict 2")
-imshow(y_predict_2)
-subplot(3,3,6);
-title("predict 3")
-imshow(y_predict_3)
-subplot(3,3,7);
-title("true 1")
-imshow(y_test_1)
-subplot(3,3,8);
-title("true 2")
-imshow(y_test_2)
-subplot(3,3,9);
-title("true 3")
-imshow(y_test_3)
-
-savefig("result/200ep.png")
+BSON.@save "Darcynet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size
