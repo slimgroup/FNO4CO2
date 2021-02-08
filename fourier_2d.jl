@@ -55,7 +55,7 @@ function (L::SpectralConv2d)(x::AbstractArray{Float32})
                 0f0im .* view(x_ft, 1:modes1, 1:size(x_ft,2)-2*modes2, :, :),
                 compl_mul2d(x_ft[1:modes1, end-modes2+1:end,:,:], L.weights2),dims=2),
                 0f0im .* view(x_ft, 1:size(x_ft,1)-modes1, :, :, :),dims=1)
-    x = irfft(out_ft, size(x,2),[1,2])
+    x = irfft(out_ft, size(x,1),[1,2])
 end
 
 mutable struct SimpleBlock2d
