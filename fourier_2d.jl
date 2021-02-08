@@ -6,7 +6,6 @@ using BSON
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
-using DrWatson
 using ProgressMeter
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
