@@ -218,7 +218,6 @@ opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 figure();plot(Loss);xlabel("iterations");ylabel("Loss");title("Loss history on training batch")
 
 savefig("result/loss_$epochs.png")
-Flux.testmode!(NN, true)
 
 x_test_1 = x_test[:,:,:,:,1:1]
 x_test_2 = x_test[:,:,:,:,2:2]

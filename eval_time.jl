@@ -200,23 +200,33 @@ end
 
 # value, x, y, t
 
+up_x = up_y = 1
+up_t = 1
+
+new_mean = zeros(Float32,up_x*n[1],up_y*n[2],up_t*nt,1)
+new_std = zeros(Float32,up_x*n[1],up_y*n[2],up_t*nt,1)
+
+for i = 1:up_t*nt
+    new_mean[:,:,i,1] = imresize(y_normalizer.mean_[:,:,i,1],up_x*n[1],up_y*n[2])
+    new_std[:,:,i,1] = imresize(y_normalizer.std_[:,:,i,1],up_x*n[1],up_y*n[2])
+end
+
+y_normalizer_up = UnitGaussianNormalizer(new_mean,new_std,y_normalizer.eps_)
+
 compute_time = 0f0
 
-x_train_new = zeros(Float32,200,200,51,4,1000)
-for i = 1:51
-    for j = 1:4
-        for k  = 1:1000
-            x_train_new[:,:,i,j,k] = imresize(x_train[:,:,i,j,k])
-        end
-    end
-end
 run_samples = 100
 for i = 1:run_samples
-    in_sample = x_train_new[:,:,:,:,i:i]
+    in_sample = zeros(Float32,up_x*n[1],up_y*n[2],51,4,1)
+    for j = i:nt
+        in_sample[:,:,j,1,1] = imresize(x_train[:,:,j,1,i],up_x*n[1],up_y*n[2])
+        in_sample[:,:,j,2,1] = imresize(grid[:,:,1],up_x*n[1],up_y*n[2])
+        in_sample[:,:,j,3,1] = imresize(grid[:,:,2],up_x*n[1],up_y*n[2])
+        in_sample[:,:,j,4,1] .= j*dt
+    end
     start_time = time();
-    @time out_sample = NN(in_sample)
+    @time y_out = decode(y_normalizer_up,NN(in_sample))
     end_time = time();
-    y_out = decode(y_normalizer,out_sample);
     run_time = end_time-start_time
     #println(run_time)
     global compute_time += run_time
