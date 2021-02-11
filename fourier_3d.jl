@@ -169,6 +169,8 @@ n = (64,64)
 #d = (15f0,15f0) # dx, dy in m
 d = (1f0/64, 1f0/64)
 
+s = 4
+
 nt = 51
 #dt = 20f0    # dt in day
 dt = 1f0/nt
@@ -176,11 +178,11 @@ dt = 1f0/nt
 perm = matread("data/perm.mat")["perm"]
 conc = matread("data/conc.mat")["conc"]
 
-x_train_ = convert(Array{Float32},perm[:,:,1:ntrain])
-x_test_ = convert(Array{Float32},perm[:,:,end-ntest+1:end])
+x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain])
+x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end])
 
-y_train_ = convert(Array{Float32},conc[:,:,:,1:ntrain])
-y_test_ = convert(Array{Float32},conc[:,:,:,end-ntest+1:end])
+y_train_ = convert(Array{Float32},conc[:,1:s:end,1:s:end,1:ntrain])
+y_test_ = convert(Array{Float32},conc[:,1:s:end,1:s:end,end-ntest+1:end])
 
 y_train_ = permutedims(y_train_,[2,3,1,4])
 y_test = permutedims(y_test_,[2,3,1,4])
@@ -266,4 +268,4 @@ end
 NN = NN |> cpu
 w = convert.(Array,w) |> cpu
 
-BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size
+BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s

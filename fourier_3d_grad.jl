@@ -214,31 +214,58 @@ end
 
 Flux.testmode!(NN, true)
 
-opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
-
+nx, ny = n
+dx, dy = d
 x_test_1 = x_test[:,:,:,:,1:1]
 y_test_1 = y_test[:,:,:,1:1]
 
-x_inv = 0f0 * x_test_1
+x_perm = zeros(Float32,nx,ny)
 
-p =  params(x_inv)
+p =  params(x_perm)
 
-grad_iterations = 100
-grad_steplen = 1f-4
+grad_iterations = 500
+grad_steplen = 3f-2
+
+opt = Flux.Optimise.ADAMW(grad_steplen, (0.9f0, 0.999f0), 1f-4)
+
+function perm_to_tensor(x_perm,nt,grid,dt)
+    # input nx*ny, output nx*ny*nt*4*1
+    nx, ny = size(x_perm)
+    x1 = reshape(x_perm,nx,ny,1,1,1)
+    x2 = cat([x1 for i = 1:nt]...,dims=3)
+    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_t = cat([i*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
+    return x_out
+end
 
 Grad_Loss = zeros(Float32,grad_iterations)
 for iter = 1:grad_iterations
     Base.flush(Base.stdout)
     @time grads = gradient(p) do
-        out = decode(y_normalizer,NN(x_inv))
+        out = decode(y_normalizer,NN(perm_to_tensor(x_perm,nt,grid,dt)))
         global loss = Flux.mse(out,y_test_1;agg=sum)
         return loss
     end
-    Loss[iter] = loss
+    Grad_Loss[iter] = loss
     println("loss at iteration ", iter, " = $loss")
     for w in p
         Flux.Optimise.update!(opt, w, grads[w])
     end
 end
 
+#x_out = decode(x_normalizer,mean(x_inv[:,:,:,1,1],dims=3))
+
+x_out = decode(x_normalizer,reshape(x_perm,nx,ny,1))[:,:,1]
+
+figure();plot(Grad_Loss);title("ADAM history");xlabel("iterations");ylabel("loss");
+savefig("result/inv_his.png")
+
+figure();
+subplot(1,2,1);
+imshow(x_out,vmin=20,vmax=120);title("inversion by NN");
+subplot(1,2,2);
+imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120);title("GT permeability");
+savefig("result/inversion.png")
 
