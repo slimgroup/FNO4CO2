@@ -334,15 +334,15 @@ y_normalizer_up = UnitGaussianNormalizer(new_mean_y,new_std_y,y_normalizer.eps_)
 
 x_normalizer_up = UnitGaussianNormalizer(new_mean_x,new_std_x,x_normalizer.eps_)
 
-G = ExtendedQForward(F[1])
+#q_vec = vec(vcat(q.data...))
 
-q_vec = vcat(q.data...)
+G = Forward(F[1],q)
 
-x_perm = 20*ones(Float32,n[1],n[2],1)
+x_perm = 20*ones(Float32,n[1],n[2])
 
 p =  params(x_perm)
 
-grad_iterations = 5000
+grad_iterations = 5
 grad_steplen = 3f-2
 
 opt = Flux.Optimise.ADAMW(grad_steplen, (0.9f0, 0.999f0), 1f-4)
@@ -369,8 +369,8 @@ for iter = 1:grad_iterations
         sw = decode(y_normalizer_up,NN(perm_to_tensor(x_perm,n,nt,grid_up,dt)))[:,:,survey_indices]
         vp_stack = [(Patchy(sw[:,:,i]',vp,vs,rho,phi))[1] for i = 1:num_vintage]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:num_vintage]
-        d_predict = [G(q_vec,m_stack[i]) for i = 1:num_vintage]
-        global loss = Flux.mse(d_obs,d_predict;agg=sum)
+        d_predict = [G(m_stack[i]) for i = 1:num_vintage]
+        global loss = Flux.mse(vec(vcat(d_obs...)),vec(vcat(d_predict...));agg=sum)
         return loss
     end
     Grad_Loss[iter] = loss
