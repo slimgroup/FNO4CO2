@@ -168,11 +168,13 @@ dt = 1f0/nt
 perm = matread("data/perm.mat")["perm"]
 conc = matread("data/conc.mat")["conc"]
 
-x_train_ = convert(Array{Float32},perm[:,:,1:ntrain])
-x_test_ = convert(Array{Float32},perm[:,:,end-ntest+1:end])
+s = 4
 
-y_train_ = convert(Array{Float32},conc[:,:,:,1:ntrain])
-y_test_ = convert(Array{Float32},conc[:,:,:,end-ntest+1:end])
+x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain])
+x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end])
+
+y_train_ = convert(Array{Float32},conc[:,1:s:end,1:s:end,1:ntrain])
+y_test_ = convert(Array{Float32},conc[:,1:s:end,1:s:end,end-ntest+1:end])
 
 y_train_ = permutedims(y_train_,[2,3,1,4])
 y_test = permutedims(y_test_,[2,3,1,4])

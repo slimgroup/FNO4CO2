@@ -3,7 +3,7 @@
 
 using PyPlot
 using BSON
-using Flux, Random, FFTW, Zygote, NNlib
+using Flux, Random, FFTW, Zygote, NNlib, Optim, FluxOptTools
 using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter, JLD2, Images
@@ -237,7 +237,7 @@ sw = y_test_1[survey_indices,:,:,1]
 
 ##### Rock physics
 
-function Patchy(sw, vp, vs, rho, phi; bulk_min = 36.6f9, bulk_fl1 = 2.735f9, bulk_fl2 = 0.125f9, ρw = 501.9f0, ρo = 1053.0f0)
+function Patchy(sw::AbstractArray{Float32}, vp::AbstractArray{Float32}, vs::AbstractArray{Float32}, rho::AbstractArray{Float32}, phi::AbstractArray{Float32}; bulk_min = 36.6f9, bulk_fl1 = 2.735f9, bulk_fl2 = 0.125f9, ρw = 501.9f0, ρo = 1053.0f0)
 
     bulk_sat1 = rho .* (vp.^2f0 - 4f0/3f0 .* vs.^2f0)
     shear_sat1 = rho .* (vs.^2f0)
@@ -249,7 +249,7 @@ function Patchy(sw, vp, vs, rho, phi; bulk_min = 36.6f9, bulk_fl1 = 2.735f9, bul
     bulk_sat2 = bulk_min./(1f0./patch_temp .+ 1f0)
 
     bulk_new = 1f0./( (1f0.-sw)./(bulk_sat1+4f0/3f0*shear_sat1) 
-    + sw./(bulk_sat2+4.0/3.0*shear_sat1) ) - 4.0/3.0*shear_sat1
+    + sw./(bulk_sat2+4f0/3f0*shear_sat1) ) - 4f0/3f0*shear_sat1
 
     rho_new = rho + phi .* sw * (ρw - ρo)
 
@@ -263,7 +263,7 @@ n = (size(sw,3), size(sw,2))
 
 vp = 3500 * ones(Float32,n)
 vs = vp ./ sqrt(3f0)
-phi = 0.25 * ones(Float32,n)
+phi = 0.25f0 * ones(Float32,n)
 
 rho = 2200 * ones(Float32,n)
 
@@ -338,7 +338,7 @@ x_normalizer_up = UnitGaussianNormalizer(new_mean_x,new_std_x,x_normalizer.eps_)
 
 G = Forward(F[1],q)
 
-x_perm = 20*ones(Float32,n[1],n[2])
+x_perm = zeros(Float32,n[1],n[2])
 
 p =  params(x_perm)
 
@@ -379,3 +379,19 @@ for iter = 1:grad_iterations
         Flux.Optimise.update!(opt, w, grads[w])
     end
 end
+
+x_start = decode(x_normalizer_up,zeros(n[1],n[2],1))[:,:,1]
+x_out = decode(x_normalizer_up,reshape(x_perm,n[1],n[2],1))[:,:,1]
+
+figure();plot(Grad_Loss);title("ADAM history");xlabel("iterations");ylabel("loss");
+savefig("result/coupled_loss.png")
+
+figure(figsize=(15,6));
+subplot(1,3,1);
+imshow(x_start,vmin=20,vmax=120);title("initial guess");
+subplot(1,3,2);
+imshow(x_out,vmin=20,vmax=120);title("coupled inversion");
+subplot(1,3,3);
+imshow(x_test_1,vmin=20,vmax=120);title("True permeability");
+suptitle("5 iteration of ADAM")
+savefig("result/coupled_result.png")
