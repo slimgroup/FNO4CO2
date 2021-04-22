@@ -306,7 +306,7 @@ savefig("result/2phase_trainsample3.png")
 
 # test on test set
 
-figure(figsize=(15,15));
+figure(figsize=(20,7));
 
 for i = 1:9
     subplot(4,9,i);
@@ -318,13 +318,37 @@ for i = 1:9
 end
 for i = 1:9
     subplot(4,9,i+18);
-    imshow(20*(y_test_1[:,:,6*i-5]-y_predict_1[:,:,6*i-5]),vmin=0,vmax=1);
+    imshow(10*(y_test_1[:,:,6*i-5]-y_predict_1[:,:,6*i-5]),vmin=0,vmax=1);
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Test sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("1st row predict; 2nd row grond truth; 3rd row 10*diff; last row permeability")
 
 savefig("result/2phase_testsample1.png")
+
+
+figure(figsize=(23,5));
+
+for i = 1:9
+    subplot(3,9,i);
+    imshow(y_predict_1[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(3,9,i+9);
+    imshow(y_test_1[:,:,6*i-5],vmin=0,vmax=1);
+end
+for i = 1:9
+    subplot(3,9,i+18);
+    imshow(10*(y_test_1[:,:,6*i-5]-y_predict_1[:,:,6*i-5]),vmin=0,vmax=1);
+end
+#suptitle("1st row predict; 2nd row grond truth; 3rd row 10*diff")
+savefig("result/2phase_testsample1.png", bbox_inches="tight", dpi=150)
+
+figure()
+imshow(perm[:,:,1001],vmin=20,vmax=120);
+#title("permeability");
+savefig("result/2phase_perm1.png", bbox_inches="tight", dpi=150)
+
 
 figure(figsize=(15,15));
 

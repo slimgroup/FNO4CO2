@@ -5,7 +5,6 @@ using PyPlot
 using BSON
 using Flux, Random, FFTW, Zygote, NNlib, Optim, FluxOptTools
 using MAT, Statistics, LinearAlgebra
-using CUDA
 using ProgressMeter, JLD2, Images
 
 using JUDI.TimeModeling, JUDI4Flux
@@ -14,9 +13,9 @@ using Printf
 import Base.*
 
 
-CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
-CUDA.sqrt(a::Complex) = cu(sqrt(a))
-Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast(sqrt, Base.materialize(a))
+#CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
+#CUDA.sqrt(a::Complex) = cu(sqrt(a))
+#Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast(sqrt, Base.materialize(a))
 
 include("utils.jl")
 
@@ -280,7 +279,7 @@ extentz = (n[2]-1)*d[2]
 nsrc = 15
 nrec = n[2]
 
-model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; rho = rho/1f3, nb = 200) for i = 1:num_vintage]
+model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; rho = rho/1f3, nb = 20) for i = 1:num_vintage]
 
 timeS = timeR = 750f0
 dtS = dtR = 1f0
@@ -305,7 +304,7 @@ q = judiVector(srcGeometry, wavelet)
 ntComp = get_computational_nt(srcGeometry, recGeometry, model[1])
 info = Info(prod(n), nsrc, ntComp)
 
-opt = Options(return_array=true)
+opt = Options(return_array=true,optimal_checkpointing=true)
 Pr = judiProjection(info, recGeometry)
 Ps = judiProjection(info, srcGeometry)
 
@@ -313,6 +312,7 @@ F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:num_vintage]
 
 d_obs = [F[i]*q for i = 1:num_vintage]
 
+JLD2.@save "data/time_lapse_data.jld2" d_obs
 ######################## Inversion
 
 
@@ -338,14 +338,10 @@ x_normalizer_up = UnitGaussianNormalizer(new_mean_x,new_std_x,x_normalizer.eps_)
 
 G = Forward(F[1],q)
 
-x_perm = zeros(Float32,n[1],n[2])
-
-p =  params(x_perm)
+x_perm = 20*ones(Float32,n[1],n[2],1)
 
 grad_iterations = 5
 grad_steplen = 3f-2
-
-opt = Flux.Optimise.ADAMW(grad_steplen, (0.9f0, 0.999f0), 1f-4)
 
 grid_up = zeros(Float32,n[1],n[2],2)
 grid_up[:,:,1] = imresize(grid[:,:,1],n[1],n[2])
@@ -353,7 +349,9 @@ grid_up[:,:,2] = imresize(grid[:,:,2],n[1],n[2])
 
 function perm_to_tensor(x_perm,n,nt,grid,dt)
     # input nx*ny, output nx*ny*nt*4*1
-    x1 = reshape(x_perm,n[1],n[2],1,1,1)
+    x_lb = relu.(x_perm.-10f0) .+ 10f0
+    x_ub = 130f0 .- relu.(130f0.-x_perm)
+    x1 = reshape(encode(x_normalizer_up,x_ub),n[1],n[2],1,1,1)
     x2 = cat([x1 for i = 1:nt]...,dims=3)
     grid_1 = cat([reshape(grid[:,:,1],n[1],n[2],1,1,1) for i = 1:nt]...,dims=3)
     grid_2 = cat([reshape(grid[:,:,2],n[1],n[2],1,1,1) for i = 1:nt]...,dims=3)
@@ -362,27 +360,36 @@ function perm_to_tensor(x_perm,n,nt,grid,dt)
     return x_out
 end
 
-Grad_Loss = zeros(Float32,grad_iterations)
-for iter = 1:grad_iterations
-    Base.flush(Base.stdout)
-    @time grads = gradient(p) do
-        sw = decode(y_normalizer_up,NN(perm_to_tensor(x_perm,n,nt,grid_up,dt)))[:,:,survey_indices]
-        vp_stack = [(Patchy(sw[:,:,i]',vp,vs,rho,phi))[1] for i = 1:num_vintage]
-        m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:num_vintage]
-        d_predict = [G(m_stack[i]) for i = 1:num_vintage]
-        global loss = Flux.mse(vec(vcat(d_obs...)),vec(vcat(d_predict...));agg=sum)
-        return loss
-    end
-    Grad_Loss[iter] = loss
-    println("loss at iteration ", iter, " = $loss")
-    for w in p
-        Flux.Optimise.update!(opt, w, grads[w])
-    end
+function CoupleNet(x::AbstractArray{Float32})
+    sw = decode(y_normalizer_up,NN(perm_to_tensor(x,n,nt,grid_up,dt)))[:,:,survey_indices,1]
+    sw = relu.(sw)
+    sw = 1f0 .- relu.(1f0.-sw)
+    vp_stack = [(Patchy(sw[:,:,i]',vp,vs,rho,phi))[1] for i = 1:num_vintage]
+    m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:num_vintage]
+    d_predict = [G(m_stack[i]) for i = 1:num_vintage]
+    return vec(vcat(d_predict...))
 end
 
-x_start = decode(x_normalizer_up,zeros(n[1],n[2],1))[:,:,1]
-x_out = decode(x_normalizer_up,reshape(x_perm,n[1],n[2],1))[:,:,1]
+#f(x) = 0.5f0 * sum((CoupleNet(x_perm)-vec(vcat(d_obs...)).^2f0))
 
+#function g!(G, x)
+#    G[1] = -2.0 * (1.0 - x[1]) - 400.0 * (x[2] - x[1]^2) * x[1]
+#    G[2] = 200.0 * (x[2] - x[1]^2)
+#end
+
+loss() = mean(abs2, CoupleNet(x_perm).-vec(vcat(d_obs...)))
+#loss_() = mean(abs2,CoupleNet(x_perm))
+
+p =  Flux.params(x_perm)
+
+lossfun, gradfun, fg!, p0 = optfuns(loss, p)
+
+res = Optim.optimize(Optim.only_fg!(fg!), p0, Optim.Options(iterations=50, store_trace=true))
+
+
+plot_ = true
+
+if plot_
 figure();plot(Grad_Loss);title("ADAM history");xlabel("iterations");ylabel("loss");
 savefig("result/coupled_loss.png")
 
@@ -390,8 +397,9 @@ figure(figsize=(15,6));
 subplot(1,3,1);
 imshow(x_start,vmin=20,vmax=120);title("initial guess");
 subplot(1,3,2);
-imshow(x_out,vmin=20,vmax=120);title("coupled inversion");
+imshow(x_perm[:,:,1],vmin=20,vmax=120);title("coupled inversion");
 subplot(1,3,3);
 imshow(x_test_1,vmin=20,vmax=120);title("True permeability");
 suptitle("5 iteration of ADAM")
 savefig("result/coupled_result.png")
+end
