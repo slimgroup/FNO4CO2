@@ -4,6 +4,7 @@
 
 using DrWatson
 @quickactivate "FNO"
+import Pkg; Pkg.instantiate()
 
 try
     CUDA.device()
