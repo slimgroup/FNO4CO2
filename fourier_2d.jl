@@ -1,12 +1,17 @@
 # author: Ziyi Yin
-# This code is an implementation of fourier neural operators from Zongyi Li's repository
+# This script trains a Fourier Neural Operator which maps Poisson coefficients to solutions
+# This script re-implements the script in Zongyi Li's repository
 
-using PyPlot
-using BSON
-using Flux, Random, FFTW, Zygote, NNlib
-using MAT, Statistics, LinearAlgebra
-using CUDA
-using ProgressMeter
+using DrWatson
+@quickactivate "FNO"
+
+try
+    CUDA.device()
+    global gpu_flag=true
+catch e
+    println("CUDA.device() found no GPU device on this machine.")
+    global gpu_flag=false
+end
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -26,8 +31,13 @@ end
 # Constructor
 function SpectralConv2d(in_channels::Integer, out_channels::Integer, modes1::Integer, modes2::Integer)
     scale = (1f0 / (in_channels * out_channels))
-    weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
-    weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
+    if gpu_flag
+        weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
+        weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels) |> gpu
+    else
+        weights1 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
+        weights2 = scale*rand(Complex{Float32}, modes1, modes2, in_channels, out_channels)
+    end
     return SpectralConv2d{Complex{Float32}, 4}(weights1, weights2)
 end
 
@@ -155,6 +165,8 @@ r = 5
 h = Int(((421 - 1)/r) + 1)
 s = h
 
+### To load the train/test datasets, first download the Darcy_421.zip from https://drive.google.com/drive/folders/1UnbQh2WWc6knEHbLn-ZaXrKUZhp7pjt-
+
 TRAIN = matread("data/piececonst_r421_N1024_smooth1.mat")
 x_train_ = convert(Array{Float32},TRAIN["coeff"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s])
 y_train_ = convert(Array{Float32},TRAIN["sol"][1:ntrain,1:r:end,1:r:end][:,1:s,1:s])
@@ -220,8 +232,10 @@ for ep = 1:epochs
     for (x,y) in train_loader
         global iter = iter + 1
         grads = gradient(w) do
-            x = x |> gpu
-            y = y |> gpu
+            if gpu_flag
+                x = x |> gpu
+                y = y |> gpu
+            end
             out = decode(y_normalizer,NN(x))
             y_n = decode(y_normalizer,y)
             global loss = Flux.mse(out,y_n;agg=sum)
@@ -235,7 +249,11 @@ for ep = 1:epochs
     end
 end
 
-NN = NN |> cpu
-w = convert.(Array,w) |> cpu
+if gpu_flag
+    NN = NN |> cpu
+    w = convert.(Array,w) |> cpu
+end
 
-BSON.@save "Darcynet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size
+# Define result directory
+mkpath(datadir("TrainedNet"))
+BSON.@save "TrainedNet/darcynet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size ntrain ntest s r h

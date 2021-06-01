@@ -1,11 +1,9 @@
 # author: Ziyi (Francis) Yin
+# This script trains a Fourier Neural Operator which maps 2D permeability distribution to time-varying CO2 concentration snapshots.
+# The PDE is in 2D while FNO requires 3D FFT
 
-using PyPlot
-using BSON
-using Flux, Random, FFTW, Zygote, NNlib
-using MAT, Statistics, LinearAlgebra
-using CUDA
-using ProgressMeter, JLD2
+using DrWatson
+@quickactivate "FNO"
 
 try
     CUDA.device()
@@ -179,7 +177,7 @@ n = (64,64)
 #d = (15f0,15f0) # dx, dy in m
 d = (1f0/64, 1f0/64)
 
-s = 1
+s = 4
 
 nt = 51
 #dt = 20f0    # dt in day
@@ -191,17 +189,17 @@ perm_path = datadir("data", "perm.mat")
 conc_path = datadir("data", "conc.mat")
 
 # Download the dataset into the data directory if it does not exist
-if isfile(data_path) == false
+if isfile(perm_path) == false
     run(`wget https://www.dropbox.com/s/xzicjq9fnessdif/'
-        'perm.mat -q -O $data_path`)
+        'perm.mat -q -O $perm_path`)
 end
-if isfile(label_path) == false
+if isfile(conc_path) == false
     run(`wget https://www.dropbox.com/s/s7ph9gf2xwlu5mb/'
-        'conc.mat -q -O $label_path`)
+        'conc.mat -q -O $conc_path`)
 end
 
-perm = matread("data/perm.mat")["perm"]
-conc = matread("data/conc.mat")["conc"]
+perm = matread(perm_path)["perm"]
+conc = matread(conc_path)["conc"]
 
 x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain])
 x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end])
@@ -295,6 +293,6 @@ if gpu_flag
     w = convert.(Array,w) |> cpu
 end
 
-# Define raw data directory
+# Define result directory
 mkpath(datadir("TrainedNet"))
-BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt
+BSON.@save "TrainedNet/2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt

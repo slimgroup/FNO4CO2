@@ -1,0 +1,20 @@
+name = "FNO"
+authors = ["Ziyi Yin and Mathias Louboutin and Felix J. Herrmann and SLIM group members"]
+
+[deps]
+BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[compat]
+julia = "1.5.0"
