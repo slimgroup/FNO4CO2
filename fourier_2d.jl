@@ -6,6 +6,13 @@ using DrWatson
 @quickactivate "FNO"
 import Pkg; Pkg.instantiate()
 
+using PyPlot
+using BSON
+using Flux, Random, FFTW, Zygote, NNlib
+using MAT, Statistics, LinearAlgebra
+using CUDA
+using ProgressMeter
+
 try
     CUDA.device()
     global gpu_flag=true
