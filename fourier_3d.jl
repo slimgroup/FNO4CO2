@@ -1,5 +1,4 @@
-# author: Ziyi Yin
-# This code is an implementation of fourier neural operators from Zongyi Li's repository
+# author: Ziyi (Francis) Yin
 
 using PyPlot
 using BSON
@@ -12,7 +11,7 @@ try
     CUDA.device()
     global gpu_flag=true
 catch e
-    println("Found no GPU device on this machine.")
+    println("CUDA.device() found no GPU device on this machine.")
     global gpu_flag=false
 end
 
@@ -296,4 +295,6 @@ if gpu_flag
     w = convert.(Array,w) |> cpu
 end
 
-BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s
+# Define raw data directory
+mkpath(datadir("TrainedNet"))
+BSON.@save "2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt
