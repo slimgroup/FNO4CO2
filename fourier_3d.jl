@@ -303,4 +303,4 @@ end
 
 # Define result directory
 mkpath(datadir("TrainedNet"))
-BSON.@save "TrainedNet/2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt
+BSON.@save "data/TrainedNet/2phasenet_$epochs.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt
