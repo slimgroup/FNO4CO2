@@ -19,3 +19,7 @@ To (locally) reproduce this project, do the following:
 
 This will install all necessary packages for you to be able to run the scripts and
 everything should work out of the box.
+
+## Examples
+
+The repository currently includes 2 examples. `fourier_2d.jl` trains a 2D FNO which maps the coefficients of Poisson equation to its solution. `fourier_3d.jl` trains a 2.5D FNO which maps the permeability to time-varying CO2 concentration in 2-phase flow.
