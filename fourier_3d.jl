@@ -60,8 +60,8 @@ function compl_mul3d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Comple
     # x in (modes1, modes2, modes3, input channels, batchsize)
     # y in (modes1, modes2, modes3, input channels, output channels)
     # output in (modes1,modes2,output channles,batchsize)
-    x_per = permutedims(x,[5,4,1,2,3]) # batchsize*in_channels*modes1*modes2
-    y_per = permutedims(y,[4,5,1,2,3]) # in_channels*out_channels*modes1*modes2
+    x_per = permutedims(x,[5,4,1,2,3]) # batchsize*in_channels*modes1*modes2*modes3
+    y_per = permutedims(y,[4,5,1,2,3]) # in_channels*out_channels*modes1*modes2*modes3
     x_resh = reshape(x_per,size(x_per,1),size(x_per,2),:) # batchsize*in_channels*(modes1*modes2*modes3)
     y_resh = reshape(y_per,size(y_per,1),size(y_per,2),:) # in_channels*out_channels*(modes1*modes2*modes3)
     out_resh = batched_mul(x_resh,y_resh) # batchsize*out_channels*(modes1*modes2*modes3)
