@@ -59,7 +59,7 @@ function compl_mul3d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Comple
     # complex multiplication
     # x in (modes1, modes2, modes3, input channels, batchsize)
     # y in (modes1, modes2, modes3, input channels, output channels)
-    # output in (modes1,modes2,output channles,batchsize)
+    # output in (modes1,modes2,modes3,output channels,batchsize)
     x_per = permutedims(x,[5,4,1,2,3]) # batchsize*in_channels*modes1*modes2*modes3
     y_per = permutedims(y,[4,5,1,2,3]) # in_channels*out_channels*modes1*modes2*modes3
     x_resh = reshape(x_per,size(x_per,1),size(x_per,2),:) # batchsize*in_channels*(modes1*modes2*modes3)
@@ -72,10 +72,11 @@ end
 
 function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
     # x in (size_x, size_y, time, channels, batchsize)
-    x_ft = rfft(x,[1,2,3])
+    x_ft = rfft(x,[1,2,3])      ## full size FFT
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     modes3 = size(L.weights1,3)
+    ### only keep low frequency coefficients
     out_ft = cat(cat(cat(compl_mul3d(x_ft[1:modes1, 1:modes2, 1:modes3, :,:], L.weights1), 
                 0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :),
                 compl_mul3d(x_ft[1:modes1, 1:modes2, end-modes3+1:end,:,:], L.weights2),dims=3),
