@@ -1,5 +1,5 @@
 # author: Ziyi (Francis) Yin
-# This script trains a Fourier Neural Operator which maps 2D permeability distribution to time-varying CO2 concentration snapshots.
+# This script benchmarks the time and memory usage for spectral conv layer in FNO
 # The PDE is in 2D while FNO requires 3D FFT
 # Date: Aug 2021
 
