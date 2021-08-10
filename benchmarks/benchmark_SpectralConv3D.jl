@@ -114,7 +114,7 @@ for (i, m)=enumerate(modes)
             end
             B = (@benchmark grads = gradient(() -> Flux.mse(SC(x),y;agg=sum), weight_))
             time_[k, i, j] = mean(B).time/1f9
-            memory_[k, i, j] = mean(B).memory
+            memory_[k, i, j] = B.memory
             println("SpectralConv3D test: $(m) modes, $(w) width, ($(s),$(s),$(s)) problem size in (x,y,t), $(batchsize) batchsize")
             println("Time = $(time_[k, i, j]) seconds")
             println("Memory = $(memory_[k, i, j]) Bytes")
