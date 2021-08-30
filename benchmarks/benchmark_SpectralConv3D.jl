@@ -23,6 +23,8 @@ catch e
     global gpu_flag=false
 end
 
+gpu_flag = false
+
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
 Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast(sqrt, Base.materialize(a))
@@ -91,8 +93,8 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
     out_ft = irfft(out_ft, size(x,1),[1,2,3])
 end
 
-sizes = [2^i for i=5:7]
-modes = [2^i for i=1:5]
+sizes = [2^i for i=4:7]
+modes = [2^i for i=1:4]
 width = [2^i for i=2:6]
 
 batchsize = 16
