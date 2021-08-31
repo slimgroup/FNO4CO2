@@ -95,7 +95,7 @@ end
 
 sizes = [2^i for i=4:7]
 modes = [2^i for i=1:4]
-width = [2^i for i=2:6]
+width = [2^i for i=2:4]
 
 batchsize = 16
 
