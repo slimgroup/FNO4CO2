@@ -14,6 +14,7 @@ using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter
 using BenchmarkTools
+using JLD2
 
 try
     CUDA.device()
@@ -93,8 +94,8 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
     out_ft = irfft(out_ft, size(x,1),[1,2,3])
 end
 
-sizes = [2^i for i=4:7]
-modes = [2^i for i=1:3]
+sizes = [2^i for i=5:7]
+modes = [2^i for i=1:4]
 width = [2^i for i=2:4]
 
 batchsize = 16
@@ -126,5 +127,4 @@ for (i, m)=enumerate(modes)
 end
 
 device_ = (gpu_flag ? "GPU" : "CPU")
-using JLD2
 JLD2.@save "BenchmarkSpectralConv3D_$(device_).jld2" time_ memory_ gpu_flag sizes modes width
