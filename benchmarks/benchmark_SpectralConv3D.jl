@@ -94,7 +94,7 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
 end
 
 sizes = [2^i for i=4:7]
-modes = [2^i for i=1:4]
+modes = [2^i for i=1:3]
 width = [2^i for i=2:4]
 
 batchsize = 16
