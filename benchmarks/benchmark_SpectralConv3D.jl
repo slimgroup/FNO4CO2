@@ -126,4 +126,5 @@ for (i, m)=enumerate(modes)
 end
 
 device_ = (gpu_flag ? "GPU" : "CPU")
+using JLD2
 JLD2.@save "BenchmarkSpectralConv3D_$(device_).jld2" time_ memory_ gpu_flag sizes modes width
