@@ -13,12 +13,13 @@ function UnitGaussianNormalizer(x;eps_=1f-5)
 end
 
 function encode(normalizer::UnitGaussianNormalizer,x)
-    x = (x.-normalizer.mean_)./(normalizer.std_.+normalizer.eps_)
+    x1 = (x.-normalizer.mean_)./(normalizer.std_.+normalizer.eps_)
+    return x1
 end
 
 function decode(normalizer::UnitGaussianNormalizer,x;sample_idx=nothing)
     std_ = normalizer.std_ .+ normalizer.eps_
     mean_ = normalizer.mean_
-    x = x .* std_ .+ mean_
-    return x
+    x1 = x .* std_ .+ mean_
+    return x1
 end
