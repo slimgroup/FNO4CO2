@@ -14,6 +14,7 @@ NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SetIntersectionProjection = "335f7d24-6316-57dd-9c3a-df470f2b739e"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
