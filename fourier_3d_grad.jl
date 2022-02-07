@@ -83,6 +83,10 @@ end
 # value, x, y, t
 
 Flux.testmode!(NN, true)
+Flux.testmode!(NN.conv1.bn0)
+Flux.testmode!(NN.conv1.bn1)
+Flux.testmode!(NN.conv1.bn2)
+Flux.testmode!(NN.conv1.bn3)
 
 nx, ny = n
 dx, dy = d
@@ -111,6 +115,9 @@ end
 
 opt = Flux.Optimise.ADAMW(grad_steplen, (0.9f0, 0.999f0), 1f-4)
 
+fix_input = randn(Float32, nx, ny)
+temp1 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
+
 figure();
 
 Grad_Loss = zeros(Float32,grad_iterations)
@@ -130,6 +137,9 @@ for iter = 1:grad_iterations
     title("inverted permeability after iter $iter")
 end
 
+temp2 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
+@assert temp1 == temp2 # test if network is in test mode (i.e. doesnt' change)
+
 x_out = decode(x_normalizer,reshape(x_inv,nx,ny,1))[:,:,1]
 
 figure();plot(Grad_Loss);title("ADAM history");xlabel("iterations");ylabel("loss");
@@ -137,7 +147,7 @@ savefig("result/inv_his.png")
 
 figure();
 subplot(1,2,1);
-imshow(x_out,vmin=20,vmax=120);title("inversion by NN");
+imshow(x_out,vmin=20,vmax=120);title("inversion by NN, $grad_iterations iter");
 subplot(1,2,2);
 imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120);title("GT permeability");
 savefig("result/graddescent.png")
