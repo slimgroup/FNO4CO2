@@ -96,8 +96,6 @@ y_test_1 = y_test[:,:,:,1:1]
 
 x_inv = zeros(Float32,nx,ny)
 
-p =  params(x_inv)
-
 grad_iterations = 60
 grad_steplen = 3f-2
 
@@ -113,8 +111,6 @@ function perm_to_tensor(x_perm,nt,grid,dt)
     return x_out
 end
 
-opt = Flux.Optimise.ADAMW(grad_steplen, (0.9f0, 0.999f0), 1f-4)
-
 fix_input = randn(Float32, nx, ny)
 temp1 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
 
@@ -123,6 +119,7 @@ figure();
 Grad_Loss = zeros(Float32,grad_iterations)
 for iter = 1:grad_iterations
     Base.flush(Base.stdout)
+    p = params(x_inv)
     @time grads = gradient(p) do
         out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
         global loss = Flux.mse(out,y_test_1; agg=sum)
@@ -130,9 +127,7 @@ for iter = 1:grad_iterations
     end
     Grad_Loss[iter] = loss
     println("loss at iteration ", iter, " = $loss")
-    for w in p
-        Flux.Optimise.update!(opt, w, grads[w])
-    end
+    global x_inv = x_inv - grad_steplen * grads.grads[Main.x_inv]
     imshow(decode(x_normalizer,reshape(x_inv,nx,ny,1))[:,:,1], vmin=20, vmax=120);
     title("inverted permeability after iter $iter")
 end
