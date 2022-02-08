@@ -22,6 +22,12 @@ git-tree-sha1 = "bdf73eec6a88885256f282d48eafcad25d7de494"
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 version = "1.1.1"
 
+[[ArrayInterface]]
+deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
+git-tree-sha1 = "1ee88c4c76caa995a885dc2f22a5d548dfbbc0ba"
+uuid = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
+version = "3.2.2"
+
 [[Artifacts]]
 deps = ["Pkg"]
 git-tree-sha1 = "c30985d8821e0cd73870b17b0ed0ce6dc44cb744"
@@ -221,9 +227,9 @@ version = "3.3.9+8"
 
 [[FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
-git-tree-sha1 = "67551df041955cc6ee2ed098718c8fcd7fc7aebe"
+git-tree-sha1 = "80ced645013a5dbdc52cf70329399c35ce007fae"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
-version = "1.12.0"
+version = "1.13.0"
 
 [[FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -233,6 +239,12 @@ deps = ["LinearAlgebra", "Random", "SparseArrays"]
 git-tree-sha1 = "693210145367e7685d8604aee33d9bfb85db8b31"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
 version = "0.11.9"
+
+[[FiniteDiff]]
+deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
+git-tree-sha1 = "6eae72e9943d8992d14359c32aed5f892bda1569"
+uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
+version = "2.10.0"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -293,6 +305,11 @@ deps = ["InteractiveUtils", "MacroTools", "Test"]
 git-tree-sha1 = "006127162a51f0effbdfaab5ac0c83f8eb7ea8f3"
 uuid = "7869d1d1-7146-5819-86e3-90919afe41df"
 version = "0.4.4"
+
+[[IfElse]]
+git-tree-sha1 = "debdd00ffef04665ccbb3e150747a77560e8fad1"
+uuid = "615f187c-cbe4-4ef1-ba3b-2fcf58d6d173"
+version = "0.1.1"
 
 [[InlineStrings]]
 deps = ["Parsers"]
@@ -410,6 +427,12 @@ version = "1.9.0+3"
 [[Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 
+[[LineSearches]]
+deps = ["LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "Printf"]
+git-tree-sha1 = "f27132e551e959b3667d8c93eae90973225032dd"
+uuid = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
+version = "7.1.1"
+
 [[LinearAlgebra]]
 deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -480,9 +503,9 @@ version = "0.7.3"
 
 [[MozillaCACerts_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "f1662575f7bf53c73c2bbc763bace4b024de822c"
+git-tree-sha1 = "68195753cf6251a13ed72e6c72110afd9cd2ddfd"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2021.1.19+0"
+version = "2022.2.1+0"
 
 [[MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
@@ -495,6 +518,12 @@ deps = ["CUDA", "Distributed", "FFTW", "Graphics", "LinearAlgebra", "Random", "S
 git-tree-sha1 = "15a71c13f6643e7135c956de2c63f358f7be626d"
 uuid = "efe261a4-0d2b-5849-be55-fc731d526b0d"
 version = "0.6.2"
+
+[[NLSolversBase]]
+deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
+git-tree-sha1 = "50310f934e55e5ca3912fb941dec199b49ca9b68"
+uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
+version = "7.8.2"
 
 [[NNlib]]
 deps = ["Adapt", "ChainRulesCore", "Compat", "LinearAlgebra", "Pkg", "Requires", "Statistics"]
@@ -648,8 +677,8 @@ version = "1.1.0"
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [[SetIntersectionProjection]]
-deps = ["Distributed", "DistributedArrays", "Interpolations", "JOLI", "LinearAlgebra", "Parameters", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "Test"]
-git-tree-sha1 = "0944959782078285ccf1f8a4cb5c858b540149b7"
+deps = ["Distributed", "DistributedArrays", "Interpolations", "JOLI", "LinearAlgebra", "Parameters", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "Test", "TimerOutputs"]
+path = "/Users/francisyin/.julia/dev/SetIntersectionProjection"
 uuid = "335f7d24-6316-57dd-9c3a-df470f2b739e"
 version = "0.2.1"
 
@@ -675,6 +704,12 @@ deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jl
 git-tree-sha1 = "f0bccf98e16759818ffc5d97ac3ebf87eb950150"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
 version = "1.8.1"
+
+[[Static]]
+deps = ["IfElse"]
+git-tree-sha1 = "e7bc80dc93f50857a5d1e3c8121495852f407e6a"
+uuid = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
+version = "0.4.0"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
