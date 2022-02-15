@@ -206,8 +206,6 @@ function f(x_inv)
     println("evaluate f")
     @time begin
         sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        sw = relu.(sw)
-        sw = 1f0 .- relu.(1f0.-sw)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
