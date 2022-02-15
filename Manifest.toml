@@ -168,6 +168,18 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
+[[Dierckx]]
+deps = ["Dierckx_jll"]
+git-tree-sha1 = "633c119fcfddf61fb4c75d77ce3ebab552a44723"
+uuid = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
+version = "0.5.2"
+
+[[Dierckx_jll]]
+deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
+git-tree-sha1 = "a580560f526f6fc6973e8bad2b036514a4e3b013"
+uuid = "cd4c43a9-7502-52ba-aa6d-59fb2a88580b"
+version = "0.0.1+0"
+
 [[DiffResults]]
 deps = ["StaticArrays"]
 git-tree-sha1 = "c18e98cba888c6c25d1c3b048e4b3380ca956805"
@@ -378,6 +390,18 @@ deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "8076680b162ada2a031f707ac7b4953e30667a37"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.2"
+
+[[JUDI]]
+deps = ["DSP", "Dierckx", "Distributed", "FFTW", "JOLI", "LinearAlgebra", "PyCall", "Reexport", "SegyIO"]
+git-tree-sha1 = "6eb91ee4da2082efea4d70f9d75f18a51ca8b92d"
+uuid = "f3b833dc-6b2e-5b9c-b940-873ed6319979"
+version = "2.6.4"
+
+[[JUDI4Flux]]
+deps = ["Flux", "JOLI", "JUDI", "SegyIO", "Zygote"]
+git-tree-sha1 = "9fef100af75d2af0c14481732361f39c7586d98e"
+uuid = "64d089a9-642e-40bf-b992-0fb13636391a"
+version = "0.2.0"
 
 [[Juno]]
 deps = ["Base64", "Logging", "Media", "Profile"]
@@ -672,6 +696,12 @@ deps = ["Dates"]
 git-tree-sha1 = "0b4b7f1393cff97c33891da2a0bf69c6ed241fda"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.1.0"
+
+[[SegyIO]]
+deps = ["Distributed", "Printf", "Test"]
+git-tree-sha1 = "c8d336686d9902e812e50b8be72ba40e3b37ee9a"
+uuid = "157a0f19-4d44-4de5-a0d0-07e2f0ac4dfa"
+version = "0.7.7"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
