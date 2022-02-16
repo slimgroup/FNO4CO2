@@ -201,7 +201,7 @@ function perm_to_tensor(x_perm,survey_indices,grid,dt)
     return x_out
 end
 
-λ = 20f0
+λ = 50f0
 
 function f(x_inv)
     println("evaluate f")
