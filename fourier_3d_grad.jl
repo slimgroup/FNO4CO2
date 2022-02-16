@@ -95,7 +95,7 @@ dx, dy = d
 x_test_1 = x_test[:,:,:,:,1:1]
 y_test_1 = y_test[:,:,:,1:1]
 
-grad_iterations = 50
+grad_iterations = 100
 
 function perm_to_tensor(x_perm,nt,grid,dt)
     # input nx*ny, output nx*ny*nt*4*1
@@ -112,11 +112,16 @@ end
 fix_input = randn(Float32, nx, ny)
 temp1 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
 
+nv = nt
+survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
+
+λ = 1f0 # 2 norm regularization
+
 function f(x_inv)
     println("evaluate f")
     @time begin
         out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        loss = Flux.mse(out,y_test_1; agg=sum)
+        loss = 0.5f0 * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
     end
     return loss
 end
@@ -126,7 +131,7 @@ function g!(gvec, x_inv)
     p = params(x_inv)
     @time grads = gradient(p) do
         out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        global loss = Flux.mse(out,y_test_1; agg=sum)
+        global loss = 0.5f0 * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
@@ -137,74 +142,67 @@ function fg!(gvec, x_inv)
     p = params(x_inv)
     @time grads = gradient(p) do
         out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        global loss = Flux.mse(out,y_test_1; agg=sum)
+        global loss = 0.5f0 * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
     return loss
 end
 
-function gdoptimize(f, g!, fg!, x0::AbstractArray{T}, linesearch;
-                    maxiter::Int = 10000,
-                    g_rtol::T = sqrt(eps(T)), g_atol::T = eps(T), init_α::T=T(1)) where T <: Number
-    x = copy(x0)::AbstractArray{T}
+#x = zeros(Float32, nx, ny)
+x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
+
+ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
+Grad_Loss = zeros(Float32, grad_iterations+1)
+
+T = Float32
+
+println("Initial function value: ", f(x))
+
+figure();
+for j=1:grad_iterations
+
     gvec = similar(x)::AbstractArray{T}
-    fx = fg!(gvec, x)::T
-    println("Initial loss = $fx")
-    gnorm = norm(gvec)::T
-    gtol = max(g_rtol*gnorm, g_atol)::T
+    fval = fg!(gvec, x)::T
+    p = -gvec/norm(gvec, Inf)
 
-    # Univariate line search functions
-    ϕ(α) = f(x .+ α.*s)::T
-    function dϕ(α::T)
-        g!(gvec, x .+ α.*s)
-        return dot(gvec, s)::T
-    end
-    function ϕdϕ(α::T)
-        phi = fg!(gvec, x .+ α.*s)::T
-        dphi = dot(gvec, s)::T
-        return (phi, dphi)::Tuple{T,T}
+    # linesearch
+    function ϕ(α)::T
+        try
+            fval = f(x .+ α.*p)
+        catch e
+            @assert typeof(e) == DomainError
+            fval = T(Inf)
+        end
+        @show α, fval
+        return fval
     end
 
-    s = similar(gvec)::AbstractArray{T} # Step direction
+    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
 
-    iter = 0
-    Loss = zeros(Float32, maxiter)
-    while iter < maxiter && gnorm > gtol
-        iter += 1
-        s .= -gvec::AbstractArray{T}
+    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
+    Grad_Loss[j] = fval
 
-        dϕ_0 = dot(s, gvec)::T
-        α, fx = linesearch(ϕ, dϕ, ϕdϕ, init_α, fx, dϕ_0)
+    global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
+    imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
 
-        @. x = x + α*s::AbstractArray{T}
-        g!(gvec, x)
-        gnorm = norm(gvec)::T
-        Loss[iter] = fx
-        println("iteration $iter, loss = $fx, step length α=$α")
-
-        init_α = 1f1 * α
-    end
-
-    return (Loss[1:iter], x, iter)
+    # Update model and bound projection
+    @. x = x + α*p::AbstractArray{T}
 end
-
-x0 = zeros(Float32, nx, ny)
-
-ls = BackTracking(c_1=1f-4,iterations=1000,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
-Grad_Loss, x_inv, numiter = gdoptimize(f, g!, fg!, x0, ls; maxiter=grad_iterations)
 
 temp2 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
 @assert isapprox(temp1, temp2) # test if network is in test mode (i.e. doesnt' change)
 
-x_out = decode(x_normalizer,reshape(x_inv,nx,ny,1))[:,:,1]
+x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
 
-figure();plot(Grad_Loss);title("Loss history");xlabel("iterations");ylabel("loss");
+figure(figsize=(20,12));
+subplot(1,3,1)
+imshow(x_init,vmin=20,vmax=120);title("initial permeability");
+subplot(1,3,2);
+imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $(grad_iterations) iter");
+subplot(1,3,3);
+imshow(x_true,vmin=20,vmax=120);title("GT permeability");
 
 figure();
-subplot(1,2,1);
-imshow(x_out,vmin=20,vmax=120);title("inversion by NN, $grad_iterations iter");
-subplot(1,2,2);
-imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120);title("GT permeability");
-
-savefig("result/graddescent.png")
+plot(Grad_Loss)

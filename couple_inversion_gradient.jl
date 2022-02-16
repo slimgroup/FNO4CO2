@@ -243,57 +243,6 @@ function fg!(gvec, x_inv)
     return loss
 end
 
-function gdoptimize(f, g!, fg!, x0::AbstractArray{T}, linesearch;
-                    maxiter::Int = 10000,
-                    g_rtol::T = sqrt(eps(T)), g_atol::T = eps(T), init_α::T=T(1)) where T <: Number
-    x = copy(x0)::AbstractArray{T}
-    gvec = similar(x)::AbstractArray{T}
-    fx = fg!(gvec, x)::T
-    println("Initial loss = $fx")
-    gnorm = norm(gvec)::T
-    gtol = max(g_rtol*gnorm, g_atol)::T
-
-    # Univariate line search functions
-    function ϕ(α)::T
-        return f(x .+ α.*s)
-    end
-    function dϕ(α::T)
-        g!(gvec, x .+ α.*s)
-        return dot(gvec, s)::T
-    end
-    function ϕdϕ(α::T)
-        phi = fg!(gvec, x .+ α.*s)::T
-        dphi = dot(gvec, s)::T
-        return (phi, dphi)::Tuple{T,T}
-    end
-
-    s = similar(gvec)::AbstractArray{T} # Step direction
-
-    iter = 0
-    Loss = zeros(Float32, maxiter)
-    while iter < maxiter && gnorm > gtol
-        iter += 1
-        s .= -gvec::AbstractArray{T}
-
-        dϕ_0 = dot(s, gvec)::T
-        α, fx = linesearch(ϕ, dϕ, ϕdϕ, init_α, fx, dϕ_0)
-
-        @. x = x + α*s::AbstractArray{T}
-        g!(gvec, x)
-        gnorm = norm(gvec)::T
-        Loss[iter] = fx
-        println("iteration $iter, loss = $fx, step length α=$α")
-
-        init_α = 1f1 * α
-        x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
-        imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $iter iter");
-    end
-
-    return (Loss[1:iter], x, iter)
-end
-
-# Grad_Loss, x_inv, numiter = gdoptimize(f, g!, fg!, x0, ls; maxiter=grad_iterations, init_α=5f-2)
-
 x = zeros(Float32, nx, ny)
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
@@ -336,13 +285,28 @@ end
 
 x_init = decode(x_normalizer,zeros(Float32, nx, ny, 1))[:,:,1]
 
-figure();
+figure(figsize=(20,12));
 subplot(1,3,1)
 imshow(x_init,vmin=20,vmax=120);title("initial permeability");
 subplot(1,3,2);
-imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $grad_iterations iter");
+imshow(x_inv,vmin=20,vmax=120);title("inversion by coupled NN, $grad_iterations iter");
 subplot(1,3,3);
 imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
+savefig("result/coupleinv$(grad_iterations)startfrommean.png")
 
 figure();
 plot(Grad_Loss)
+savefig("result/loss$(grad_iterations)startfrommean.png")
+
+JLD2.@save "result/coupleinv$(grad_iterations)startfrommean.jld2" x_inv Grad_Loss
+
+extent = (0, (n[1]-1)*d[1], (n[2]-1)*d[2], 0)
+figure();
+imshow(x_test_1, vmin=20, vmax=120, extent=extent)
+xlabel("X [m]")
+ylabel("Z [m]")
+PyPlot.scatter(xsrc, zsrc, label="sources")
+PyPlot.scatter(xrec, zrec, label="receivers")
+legend()
+title("acquisition")
+savefig("result/acquisition.png", bbox_inches="tight", dpi=300)
