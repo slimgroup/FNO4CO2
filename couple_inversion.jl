@@ -242,6 +242,12 @@ function fg!(gvec, x_inv)
     return loss
 end
 
+function prj(x, vmin, vmax)
+    x_perm = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
+    x_perm1 = min.(max.(x_perm,vmin),vmax)
+    return encode(x_normalizer,x_perm1)[:,:,1]
+end
+
 x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
@@ -249,11 +255,15 @@ ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=
 Grad_Loss = zeros(Float32, grad_iterations+1)
 
 T = Float32
+vmin = 10f0
+vmax = 130f0
 
 Grad_Loss[1] = f(x)
 println("Initial function value: ", Grad_Loss[1])
 
 figure();
+
+init_α = 1f0
 for j=1:grad_iterations
 
     gvec = similar(x)::AbstractArray{T}
@@ -263,7 +273,7 @@ for j=1:grad_iterations
     # linesearch
     function ϕ(α)::T
         try
-            fval = f(x .+ α.*p)
+            fval = f(prj(x .+ α.*p, vmin, vmax))
         catch e
             @assert typeof(e) == DomainError
             fval = T(Inf)
@@ -272,7 +282,7 @@ for j=1:grad_iterations
         return fval
     end
 
-    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
+    α, fval = ls(ϕ, init_α, fval, dot(gvec, p))
 
     println("Coupled inversion iteration no: ",j,"; function value: ",fval)
     Grad_Loss[j+1] = fval
@@ -281,7 +291,8 @@ for j=1:grad_iterations
     imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
 
     # Update model and bound projection
-    @. x = x + α*p::AbstractArray{T}
+    global x = prj(x .+ α.*p, vmin, vmax)::AbstractArray{T}
+    global init_α = α
 end
 
 figure(figsize=(20,12));
