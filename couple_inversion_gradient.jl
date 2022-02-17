@@ -274,7 +274,7 @@ for j=1:grad_iterations
         return fval
     end
 
-    α, fval = ls(ϕ, 2f-1, fval, dot(gvec, p))
+    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
 
     println("Coupled inversion iteration no: ",j,"; function value: ",fval)
     Grad_Loss[j+1] = fval
@@ -293,10 +293,8 @@ subplot(1,3,2);
 imshow(x_inv,vmin=20,vmax=120);title("inversion by coupled NN, $grad_iterations iter");
 subplot(1,3,3);
 imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
-savefig("result/coupleinv$(grad_iterations).png")
 
 figure();
 plot(Grad_Loss)
-savefig("result/loss$(grad_iterations).png")
 
 JLD2.@save "result/coupleinv$(grad_iterations).jld2" x_inv Grad_Loss
