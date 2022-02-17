@@ -154,13 +154,13 @@ dtS = dtR = 1f0
 ntS = Int(floor(timeS/dtS))+1
 ntR = Int(floor(timeR/dtR))+1
 
-xsrc = convertToCell(vcat(range(5*d[1],stop=5*d[1],length=nsrc/2),range(d[1],stop=(n[1]-1)*d[1],length=nsrc/2)))
+xsrc = convertToCell(vcat(range(5*d[1],stop=5*d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
-zsrc = convertToCell(vcat(range(15*d[2],stop=(n[2]-15)*d[2],length=nsrc/2),range(10f0,stop=10f0,length=nsrc/2)))
+zsrc = convertToCell(vcat(range(15*d[2],stop=(n[2]-15)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
 
-xrec = vcat(range((n[1]-5)*d[1],stop=(n[1]-5)*d[1], length=nrec/2),range(d[1],stop=(n[1]-1)*d[1],length=nrec/2))
+xrec = vcat(range((n[1]-5)*d[1],stop=(n[1]-5)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
 yrec = 0f0
-zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=nrec/2),range(10f0,stop=10f0,length=nrec/2))
+zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
 
 srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
 recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
