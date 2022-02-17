@@ -186,7 +186,7 @@ G = Forward(F[1],q)
 
 x_perm = 20*ones(Float32,n[1],n[2],1)
 
-grad_iterations = 20
+grad_iterations = 50
 
 function perm_to_tensor(x_perm,survey_indices,grid,dt)
     # input nx*ny, output nx*ny*nt*4*1
@@ -250,6 +250,7 @@ end
 
 x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
+x_inv = deepcopy(x_init)
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 Grad_Loss = zeros(Float32, grad_iterations+1)
@@ -261,7 +262,14 @@ vmax = 130f0
 Grad_Loss[1] = f(x)
 println("Initial function value: ", Grad_Loss[1])
 
-figure();
+figure(figsize=(20,12));
+subplot(1,3,1)
+imshow(x_init,vmin=20,vmax=120);title("initial permeability");
+subplot(1,3,2);
+imshow(x_inv,vmin=20,vmax=120);title("inversion by coupled NN, $grad_iterations iter");
+subplot(1,3,3);
+imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
+suptitle("$nv vintages, $nsrc each, crosswell")
 
 init_α = 1f0
 for j=1:grad_iterations
@@ -288,21 +296,13 @@ for j=1:grad_iterations
     Grad_Loss[j+1] = fval
 
     global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
-    imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
-
+    subplot(1,3,2);
+    imshow(x_inv,vmin=20,vmax=120);title("inversion by coupled NN, $j iter");
     # Update model and bound projection
     global x = prj(x .+ α.*p, vmin, vmax)::AbstractArray{T}
     global init_α = α
 end
 
-figure(figsize=(20,12));
-subplot(1,3,1)
-imshow(x_init,vmin=20,vmax=120);title("initial permeability");
-subplot(1,3,2);
-imshow(x_inv,vmin=20,vmax=120);title("inversion by coupled NN, $grad_iterations iter");
-subplot(1,3,3);
-imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
-suptitle("$nv vintages, $nsrc each, crosswell")
 figure();
 plot(Grad_Loss)
 
