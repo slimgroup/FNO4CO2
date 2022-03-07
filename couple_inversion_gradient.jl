@@ -39,16 +39,13 @@ dt = 1f0/nt
 perm = matread("data/data/perm.mat")["perm"];
 conc = matread("data/data/conc.mat")["conc"];
 
-s = 4
+subsample = 4
 
-x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain]);
-x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end]);
+x_train_ = convert(Array{Float32},perm[1:subsample:end,1:subsample:end,1:ntrain]);
+x_test_ = convert(Array{Float32},perm[1:subsample:end,1:subsample:end,end-ntest+1:end]);
 
-nv = 11
-survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
-
-y_train_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,1:ntrain]);
-y_test_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,end-ntest+1:end]);
+y_train_ = convert(Array{Float32},conc[:,1:subsample:end,1:subsample:end,1:ntrain]);
+y_test_ = convert(Array{Float32},conc[:,1:subsample:end,1:subsample:end,end-ntest+1:end]);
 
 y_train_ = permutedims(y_train_,[2,3,1,4]);
 y_test = permutedims(y_test_,[2,3,1,4]);
@@ -60,45 +57,50 @@ x_test_ = encode(x_normalizer,x_test_);
 y_normalizer = UnitGaussianNormalizer(y_train_);
 y_train = encode(y_normalizer,y_train_);
 
-x = reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)
-z = reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :)
+x = reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1);
+z = reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :);
 
-grid = zeros(Float32,n[1],n[2],2)
-grid[:,:,1] = repeat(x',n[2])'
-grid[:,:,2] = repeat(z,n[1])
+grid = zeros(Float32,n[1],n[2],2);
+grid[:,:,1] = repeat(x',n[2])';
+grid[:,:,2] = repeat(z,n[1]);
 
-x_train = zeros(Float32,n[1],n[2],nv,4,ntrain)
-x_test = zeros(Float32,n[1],n[2],nv,4,ntest)
+x_train = zeros(Float32,n[1],n[2],nt,4,ntrain);
+x_test = zeros(Float32,n[1],n[2],nt,4,ntest);
 
-for i = 1:nv
+for i = 1:nt
     x_train[:,:,i,1,:] = deepcopy(x_train_)
     x_test[:,:,i,1,:] = deepcopy(x_test_)
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
-        x_train[:,:,i,4,j] .= survey_indices[i]*dt
+        x_train[:,:,i,4,j] .= i*dt
     end
 
     for k = 1:ntest
         x_test[:,:,i,2,k] = grid[:,:,1]
         x_test[:,:,i,3,k] = grid[:,:,2]
-        x_test[:,:,i,4,k] .= survey_indices[i]*dt
+        x_test[:,:,i,4,k] .= (i-1)*dt
     end
 end
 
 # value, x, y, t
-Flux.testmode!(NN, true);
-Flux.testmode!(NN.conv1.bn0);
-Flux.testmode!(NN.conv1.bn1);
-Flux.testmode!(NN.conv1.bn2);
-Flux.testmode!(NN.conv1.bn3);
+
+Flux.testmode!(NN, true)
+Flux.testmode!(NN.conv1.bn0)
+Flux.testmode!(NN.conv1.bn1)
+Flux.testmode!(NN.conv1.bn2)
+Flux.testmode!(NN.conv1.bn3)
 
 nx, ny = n
 dx, dy = d
-x_test_1 = deepcopy(perm[1:s:end,1:s:end,1001]);
-y_test_1 = deepcopy(conc[:,1:s:end,1:s:end,1001]);
+x_test_1 = deepcopy(perm[1:subsample:end,1:subsample:end,1001]);
+y_test_1 = deepcopy(conc[:,1:subsample:end,1:subsample:end,1001]);
 
 ################ Forward -- generate data
+
+nv = 5
+
+survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 
 sw = y_test_1[survey_indices,:,:,1]
 
@@ -147,7 +149,7 @@ extentz = (n[2]-1)*d[2]
 nsrc = 4
 nrec = n[2]
 
-model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; nb = 75) for i = 1:nv]
+model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
 
 timeS = timeR = 750f0
 dtS = dtR = 1f0
@@ -188,29 +190,26 @@ x_perm = 20*ones(Float32,n[1],n[2],1)
 
 grad_iterations = 50
 
-function perm_to_tensor(x_perm,survey_indices,grid,dt)
+function perm_to_tensor(x_perm,nt,grid,dt)
     # input nx*ny, output nx*ny*nt*4*1
-    nv = length(survey_indices)
     nx, ny = size(x_perm)
     x1 = reshape(x_perm,nx,ny,1,1,1)
-    x2 = cat([x1 for i = 1:nv]...,dims=3)
-    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nv]...,dims=3)
-    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nv]...,dims=3)
-    grid_t = cat([survey_indices[i]*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nv]...,dims=3)
+    x2 = cat([x1 for i = 1:nt]...,dims=3)
+    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_t = cat([i*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
     x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
     return x_out
 end
 
-λ = 50f0
-
 function f(x_inv)
     println("evaluate f")
     @time begin
-        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,survey_indices,grid,dt)))
-        vp_stack = [(Patchy(sw[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
+        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
+        vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
+        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
     end
     return loss
 end
@@ -219,11 +218,11 @@ function g!(gvec, x_inv)
     println("evaluate g")
     p = params(x_inv)
     @time grads = gradient(p) do
-        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,survey_indices,grid,dt)))
-        vp_stack = [(Patchy(sw[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
+        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
+        vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
+        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
@@ -233,27 +232,76 @@ function fg!(gvec, x_inv)
     println("evaluate f and g")
     p = params(x_inv)
     @time grads = gradient(p) do
-        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,survey_indices,grid,dt)))
-        vp_stack = [(Patchy(sw[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
+        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
+        vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
+        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
     return loss
 end
 
-x_init = 20f0*ones(Float32,nx,ny)
-x = encode(x_normalizer,x_init)[:,:,1]
+function gdoptimize(f, g!, fg!, x0::AbstractArray{T}, linesearch;
+                    maxiter::Int = 10000,
+                    g_rtol::T = sqrt(eps(T)), g_atol::T = eps(T), init_α::T=T(1)) where T <: Number
+    x = copy(x0)::AbstractArray{T}
+    gvec = similar(x)::AbstractArray{T}
+    fx = fg!(gvec, x)::T
+    println("Initial loss = $fx")
+    gnorm = norm(gvec)::T
+    gtol = max(g_rtol*gnorm, g_atol)::T
+
+    # Univariate line search functions
+    function ϕ(α)::T
+        return f(x .+ α.*s)
+    end
+    function dϕ(α::T)
+        g!(gvec, x .+ α.*s)
+        return dot(gvec, s)::T
+    end
+    function ϕdϕ(α::T)
+        phi = fg!(gvec, x .+ α.*s)::T
+        dphi = dot(gvec, s)::T
+        return (phi, dphi)::Tuple{T,T}
+    end
+
+    s = similar(gvec)::AbstractArray{T} # Step direction
+
+    iter = 0
+    Loss = zeros(Float32, maxiter)
+    while iter < maxiter && gnorm > gtol
+        iter += 1
+        s .= -gvec::AbstractArray{T}
+
+        dϕ_0 = dot(s, gvec)::T
+        α, fx = linesearch(ϕ, dϕ, ϕdϕ, init_α, fx, dϕ_0)
+
+        @. x = x + α*s::AbstractArray{T}
+        g!(gvec, x)
+        gnorm = norm(gvec)::T
+        Loss[iter] = fx
+        println("iteration $iter, loss = $fx, step length α=$α")
+
+        init_α = 1f1 * α
+        x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
+        imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $iter iter");
+    end
+
+    return (Loss[1:iter], x, iter)
+end
+
+# Grad_Loss, x_inv, numiter = gdoptimize(f, g!, fg!, x0, ls; maxiter=grad_iterations, init_α=5f-2)
+
+x = zeros(Float32, nx, ny)
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 Grad_Loss = zeros(Float32, grad_iterations+1)
 
 T = Float32
 
-Grad_Loss[1] = f(x)
-println("Initial function value: ", Grad_Loss[1])
+println("Initial function value: ", f(x))
 
 figure();
 for j=1:grad_iterations
@@ -274,10 +322,10 @@ for j=1:grad_iterations
         return fval
     end
 
-    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
+    α, fval = ls(ϕ, 2f-1, fval, dot(gvec, p))
 
     println("Coupled inversion iteration no: ",j,"; function value: ",fval)
-    Grad_Loss[j+1] = fval
+    Grad_Loss[j] = fval
 
     global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
     imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
@@ -286,15 +334,15 @@ for j=1:grad_iterations
     @. x = x + α*p::AbstractArray{T}
 end
 
-figure(figsize=(20,12));
+x_init = decode(x_normalizer,zeros(Float32, nx, ny, 1))[:,:,1]
+
+figure();
 subplot(1,3,1)
 imshow(x_init,vmin=20,vmax=120);title("initial permeability");
 subplot(1,3,2);
-imshow(x_inv,vmin=20,vmax=120);title("inversion by coupled NN, $grad_iterations iter");
+imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $grad_iterations iter");
 subplot(1,3,3);
 imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
 
 figure();
 plot(Grad_Loss)
-
-JLD2.@save "result/coupleinv$(grad_iterations).jld2" x_inv Grad_Loss

@@ -99,9 +99,8 @@ y_test_1 = deepcopy(conc[:,1:subsample:end,1:subsample:end,1001]);
 
 ################ Forward -- generate data
 
-nv = 11
+nv = 5
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
-#survey_indices = [3, 5, 11, 21, 51]
 
 sw = y_test_1[survey_indices,:,:,1]
 
@@ -151,7 +150,7 @@ q = judiVector(srcGeometry, wavelet)
 ntComp = get_computational_nt(srcGeometry, recGeometry, model[end])
 info = Info(prod(n), nsrc, ntComp)
 
-opt = Options(return_array=true,optimal_checkpointing=true)
+opt = Options(return_array=true)
 Pr = judiProjection(info, recGeometry)
 Ps = judiProjection(info, srcGeometry)
 
@@ -209,7 +208,7 @@ vmax = 130f0
 #println("Initial function value: ", Grad_Loss[1])
 
 const ϵ = 1e-8
-nvsample = 4
+nvsample = 5
 nssample = 4
 v = zeros(Float32, nx, ny)
 
