@@ -161,7 +161,7 @@ Grad_Loss = zeros(Float32, grad_iterations+1)
 
 T = Float32
 vmin = 10f0
-vmax = 130f0
+vmax = 1000f0
 
 Grad_Loss[1] = f(x)
 println("Initial function value: ", Grad_Loss[1])

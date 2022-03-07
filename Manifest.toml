@@ -125,6 +125,12 @@ git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
 
+[[ColorSchemes]]
+deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
+git-tree-sha1 = "12fc73e5e0af68ad3137b886e3f7c1eacfca2640"
+uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
+version = "3.17.1"
+
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
 git-tree-sha1 = "024fe24d83e4a5bf5fc80501a314ce0d1aa35597"
@@ -973,6 +979,12 @@ deps = ["InteractiveUtils", "MacroTools"]
 git-tree-sha1 = "5d7e3f4e11935503d3ecaf7186eac40602e7d231"
 uuid = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
 version = "0.9.4"
+
+[[SlimPlotting]]
+deps = ["ColorSchemes", "PyPlot", "Statistics"]
+git-tree-sha1 = "789014569e9be4a1520c61eee9d7f055992e5b8f"
+uuid = "f6d04670-764e-495b-a720-91c3c9a588ff"
+version = "0.1.2"
 
 [[Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"

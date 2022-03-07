@@ -20,6 +20,7 @@ Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast
 
 include("utils.jl");
 include("fno3dstruct.jl");
+include("inversion_utils.jl");
 
 Random.seed!(3)
 
@@ -98,37 +99,11 @@ y_test_1 = deepcopy(conc[:,1:subsample:end,1:subsample:end,1001]);
 
 ################ Forward -- generate data
 
-nv = 5
-
-#survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
-
-survey_indices = [3, 5, 11, 21, 51]
+nv = 11
+survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
+#survey_indices = [3, 5, 11, 21, 51]
 
 sw = y_test_1[survey_indices,:,:,1]
-
-##### Rock physics
-
-function Patchy(sw::AbstractArray{Float32}, vp::AbstractArray{Float32}, vs::AbstractArray{Float32}, rho::AbstractArray{Float32}, phi::AbstractArray{Float32}; bulk_min = 36.6f9, bulk_fl1 = 2.735f9, bulk_fl2 = 0.125f9, ρw = 501.9f0, ρo = 1053.0f0)
-
-    bulk_sat1 = rho .* (vp.^2f0 - 4f0/3f0 .* vs.^2f0)
-    shear_sat1 = rho .* (vs.^2f0)
-
-    patch_temp = bulk_sat1 ./(bulk_min .- bulk_sat1) - 
-    bulk_fl1 ./ phi ./ (bulk_min .- bulk_fl1) + 
-    bulk_fl2 ./ phi ./ (bulk_min .- bulk_fl2)
-
-    bulk_sat2 = bulk_min./(1f0./patch_temp .+ 1f0)
-
-    bulk_new = 1f0./( (1f0.-sw)./(bulk_sat1+4f0/3f0*shear_sat1) 
-    + sw./(bulk_sat2+4f0/3f0*shear_sat1) ) - 4f0/3f0*shear_sat1
-
-    rho_new = rho + phi .* sw * (ρw - ρo)
-
-    Vp_new = sqrt.((bulk_new+4f0/3f0*shear_sat1)./rho_new)
-    Vs_new = sqrt.((shear_sat1)./rho_new)
-
-    return Vp_new, Vs_new, rho_new
-end
 
 n = (size(sw,3), size(sw,2))
 
@@ -148,7 +123,7 @@ o = (0f0, 0f0)
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
 
-nsrc = 4
+nsrc = 16
 nrec = n[2]
 
 model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
@@ -190,53 +165,24 @@ G = Forward(F[1],q)
 
 grad_iterations = 50
 
-function perm_to_tensor(x_perm,nt,grid,dt)
-    # input nx*ny, output nx*ny*nt*4*1
-    nx, ny = size(x_perm)
-    x1 = reshape(x_perm,nx,ny,1,1,1)
-    x2 = cat([x1 for i = 1:nt]...,dims=3)
-    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_t = cat([i*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
-    return x_out
+function sample_src(d_obs, nsrc, rand_ns)
+    datalength = Int(length(d_obs)/nsrc)
+    return vcat([d_obs[(rand_ns[i]-1)*datalength+1:rand_ns[i]*datalength] for i = 1:length(rand_ns)]...)
 end
 
-function f(x_inv)
-    println("evaluate f")
-    @time begin
-        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
-        m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
-        d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
-    end
-    return loss
-end
-
-function g!(gvec, x_inv)
-    println("evaluate g")
-    p = params(x_inv)
-    @time grads = gradient(p) do
-        sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
-        m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
-        d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
-        return loss
-    end
-    copyto!(gvec, grads.grads[x_inv])
-end
-
-function fg!(gvec, x_inv)
+function fg!(gvec, x_inv; nvsample = 5, nssample=4)
     println("evaluate f and g")
     p = params(x_inv)
+    rand_nv = randperm(nv)[1:nvsample]
+    rand_ns = [randperm(nsrc)[1:nssample] for i = 1:nvsample]
+    d_obs_sample = [sample_src(d_obs[rand_nv[i]], nsrc, rand_ns[i]) for i = 1:nvsample]
     @time grads = gradient(p) do
         sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
-        m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
-        d_predict = [G(m_stack[i]) for i = 1:nv]
-        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0
+        vp_stack = [(Patchy(sw[:,:,survey_indices[rand_nv[i]],1]',vp,vs,rho,phi))[1] for i = 1:nvsample]
+        m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nvsample]
+        G_stack = [Forward(F[rand_nv[i]][rand_ns[i]],q[rand_ns[i]]) for i = 1:nvsample]
+        d_predict = [G_stack[i](m_stack[i]) for i = 1:nvsample]
+        global loss = 0.5f0 * norm(d_predict-d_obs_sample)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
@@ -259,38 +205,34 @@ T = Float32
 vmin = 10f0
 vmax = 130f0
 
-Grad_Loss[1] = f(x)
-println("Initial function value: ", Grad_Loss[1])
+#Grad_Loss[1] = f(x)
+#println("Initial function value: ", Grad_Loss[1])
+
+const ϵ = 1e-8
+nvsample = 4
+nssample = 4
+v = zeros(Float32, nx, ny)
 
 figure();
+
+a = 0.8f0
+b = 100f0
+β = 0.99
+
 for j=1:grad_iterations
 
     gvec = similar(x)::AbstractArray{T}
-    fval = fg!(gvec, x)::T
-    p = -gvec/norm(gvec, Inf)
-
-    # linesearch
-    function ϕ(α)::T
-        try
-            fval = f(prj(x .+ α.*p, vmin, vmax))
-        catch e
-            @assert typeof(e) == DomainError
-            fval = T(Inf)
-        end
-        @show α, fval
-        return fval
-    end
-
-    α, fval = ls(ϕ, 2f-1, fval, dot(gvec, p))
-
-    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
-    Grad_Loss[j+1] = fval
-
+    fval = fg!(gvec, x; nssample=nssample, nvsample=nvsample)::T
+    Grad_Loss[j] = fval
+    η = Float32(a * (b+j)^(-1/3))
+    @. v = β * v + (1-β) * gvec^2
+    @. gvec *= η / (√v + ϵ)
     # Update model and bound projection
-    global x = prj(x .+ α.*p, vmin, vmax)::AbstractArray{T}
+    global x = prj(x .- η.*gvec, vmin, vmax)::AbstractArray{T}
 
     global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
     imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
+    println("Coupled inversion iteration no: ",j,"; function value: ",fval,"step length: ", η)
 
 end
 
@@ -305,4 +247,4 @@ imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
 figure();
 plot(Grad_Loss)
 
-JLD2.@save "result/$(nv)nv_$(nsrc)nsrc_crosswell_bound.jld2" Grad_Loss x_inv
+JLD2.@save "result/$(nv)nv_$(nsrc)nsrc_randomized.jld2" Grad_Loss x_inv
