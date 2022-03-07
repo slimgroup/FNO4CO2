@@ -215,7 +215,7 @@ v = zeros(Float32, nx, ny)
 
 figure();
 
-a = 0.8f0
+a = 0.5f0
 b = 100f0
 β = 0.99
 
