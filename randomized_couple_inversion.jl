@@ -163,7 +163,7 @@ JLD2.@save "data/data/time_lapse_data.jld2" d_obs
 
 G = Forward(F[1],q)
 
-grad_iterations = 50
+grad_iterations = 100
 
 function sample_src(d_obs, nsrc, rand_ns)
     datalength = Int(length(d_obs)/nsrc)
@@ -199,7 +199,7 @@ x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer, reshape(x, nx, ny, 1))[:,:,1]
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
-Grad_Loss = zeros(Float32, grad_iterations+1)
+Grad_Loss = zeros(Float32, grad_iterations)
 
 T = Float32
 vmin = 10f0
