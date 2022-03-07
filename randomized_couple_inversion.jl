@@ -162,7 +162,7 @@ JLD2.@save "data/data/time_lapse_data.jld2" d_obs
 
 G = Forward(F[1],q)
 
-grad_iterations = 100
+grad_iterations = 80
 
 function sample_src(d_obs, nsrc, rand_ns)
     datalength = Int(length(d_obs)/nsrc)
@@ -209,7 +209,7 @@ vmax = 130f0
 
 const ϵ = 1e-8
 nvsample = 5
-nssample = 4
+nssample = 2
 v = zeros(Float32, nx, ny)
 
 figure();
