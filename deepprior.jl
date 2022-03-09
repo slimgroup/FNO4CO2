@@ -109,9 +109,9 @@ noise_ = noise_/norm(noise_) *  norm(swobs_true) * 10f0^(-snr/20f0)
 σ = norm(noise_)
 swobs = swobs_true + noise_
 
-λ = √1f-2
+λ = √0
 
-η = 1f-5
+η = 1f-3
 opt = pSGLD(η)
 
 z = randn(Float32, n[1], n[2], 3, 1)
@@ -120,13 +120,13 @@ x = G(z)[:,:,1,1]
 Flux.trainmode!(layers, true)
 x_init = decode(x_normalizer, reshape(x, nx, ny, 1))[:,:,1]
 
-grad_iterations = 10000
+grad_iterations = 30
 Grad_Loss = zeros(Float32, grad_iterations)
 w = Flux.params(layers)
 
 samples_1k = zeros(Float32, n[1], n[2], 1000)
 loss_1k = zeros(Float32, n[1], n[2], 1000)
-ct = 0
+
 for j=1:grad_iterations
 
     println("Iteration ", j)
@@ -150,4 +150,4 @@ for j=1:grad_iterations
     end
 end
 
-JLD2.@save "result/pSGLD.jld2" Grad_Loss
+#JLD2.@save "result/pSGLD.jld2" Grad_Loss
