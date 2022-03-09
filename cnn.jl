@@ -1,7 +1,7 @@
 function upsample(x)
     ratio = (2, 2, 1, 1)
     (h, w, c, n) = size(x)
-    y = ones(Float32, 1, ratio[1], 1, ratio[2], 1, 1) |> gpu
+    y = ones(Float32, 1, ratio[1], 1, ratio[2], 1, 1)
     z = reshape(x, (h, 1, w, 1, c, n)) .* y
     reshape(permutedims(z, (2, 1, 4, 3, 5, 6)), size(x) .* ratio)
 end
