@@ -120,16 +120,10 @@ x = G(z)[:,:,1,1]
 Flux.trainmode!(layers, true)
 x_init = decode(x_normalizer, reshape(x, nx, ny, 1))[:,:,1]
 
+grad_iterations = 10000
 Grad_Loss = zeros(Float32, grad_iterations)
-
-T = Float32
-vmin = 10f0
-vmax = 130f0
-
-v = zeros(Float32, nx, ny)
 w = Flux.params(layers)
 
-grad_iterations = 10000
 samples_1k = zeros(Float32, n[1], n[2], 1000)
 loss_1k = zeros(Float32, n[1], n[2], 1000)
 ct = 0
