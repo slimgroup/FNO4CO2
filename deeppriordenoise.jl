@@ -20,7 +20,7 @@ img = Float32.(TestImages.shepp_logan(n[1]))
 noise_ = randn(Float32, size(img))
 snr = 20f0
 noise_ = noise_/norm(noise_) *  norm(img) * 10f0^(-snr/20f0)
-σ = norm(noise_)
+σ = Float32.(norm(noise_)/sqrt(length(noise_)))
 imgobs = img + noise_
 
 η = 1f-3

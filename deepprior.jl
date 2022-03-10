@@ -18,6 +18,7 @@ include("fno3dstruct.jl");
 include("inversion_utils.jl");
 include("cnn.jl")
 include("pSGLD.jl")
+include("pSGD.jl")
 
 Random.seed!(3)
 
@@ -106,32 +107,50 @@ swobs_true = sw_true[:,obsloc,:]
 noise_ = randn(Float32, size(swobs_true))
 snr = 20f0
 noise_ = noise_/norm(noise_) *  norm(swobs_true) * 10f0^(-snr/20f0)
-σ = norm(noise_)
+σ = Float32.(norm(noise_)/sqrt(length(noise_)))
 swobs = swobs_true + noise_
 
-λ = √0
+λ = √1f0
 
-η = 1f-3
-opt = pSGLD(η)
+opt = pSGD()
 
 z = randn(Float32, n[1], n[2], 3, 1)
 Flux.testmode!(layers, true)
 x = G(z)[:,:,1,1]
 Flux.trainmode!(layers, true)
-x_init = decode(x_normalizer, reshape(x, nx, ny, 1))[:,:,1]
 
-grad_iterations = 30
-Grad_Loss = zeros(Float32, grad_iterations)
 w = Flux.params(layers)
 
 samples_1k = zeros(Float32, n[1], n[2], 1000)
 loss_1k = zeros(Float32, n[1], n[2], 1000)
 
+### pre-train to 0
+for j=1:100
+
+    println("Iteration ", j)
+    @time grads = gradient(w) do
+        global x_inv = G(z)[:,:,1,1]
+        global loss = 0.5f0 * norm(x_inv)^2f0
+        @show loss
+        return loss
+    end
+    for p in w
+        Flux.Optimise.update!(opt, p, grads[p])
+    end
+end
+x_init = decode(x_normalizer, reshape(x, nx, ny, 1))[:,:,1]
+
+### SGLD
+grad_iterations = 10000
+Grad_Loss = zeros(Float32, grad_iterations)
+opt = pSGLD()
+
+figure()
 for j=1:grad_iterations
 
     println("Iteration ", j)
     @time grads = gradient(w) do
-        x_inv = G(z)[:,:,1,1]
+        global x_inv = G(z)[:,:,1,1]
         sw = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
         misfit = 0.5f0/σ^2f0 * norm(sw[:,obsloc,:,1]-swobs)^2f0
         prior = 0.5f0 * λ^2f0 * norm(w)^2f0
@@ -143,11 +162,15 @@ for j=1:grad_iterations
     for p in w
         Flux.Optimise.update!(opt, p, grads[p])
     end
-    loss_1k[j%1000] = loss
-    samples_1k[:,:,j%1000] = decode(x_normalizer,reshape(G(z)[:,:,1,1],nx,ny,1))[:,:,1]
     if j%1000==0
+        loss_1k[1000] = loss
+        samples_1k[:,:,1000] = decode(x_normalizer,reshape(G(z)[:,:,1,1],nx,ny,1))[:,:,1]
         JLD2.@save "result/SGLD$(j-999)to$(j)samples.jld2" loss_1k samples_1k
+    else
+        loss_1k[j%1000] = loss
+        samples_1k[:,:,j%1000] = decode(x_normalizer,reshape(G(z)[:,:,1,1],nx,ny,1))[:,:,1]
     end
+    imshow(decode(x_normalizer,G(z)[:,:,1,1])[:,:,1], vmin=20, vmax=120)
 end
 
-#JLD2.@save "result/pSGLD.jld2" Grad_Loss
+JLD2.@save "result/pSGLD.jld2" Grad_Loss
