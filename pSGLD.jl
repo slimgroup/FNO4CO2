@@ -27,7 +27,7 @@ mutable struct pSGLD
   acc::IdDict
 end
 
-pSGLD(η = 0.001, ρ = 0.99) = pSGLD(η, ρ, IdDict())
+pSGLD(;η = 0.001, ρ = 0.99) = pSGLD(η, ρ, IdDict())
 
 function apply!(o::pSGLD, x, Δ)
     η, ρ = o.eta, o.rho

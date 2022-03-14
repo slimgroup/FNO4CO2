@@ -579,6 +579,12 @@ git-tree-sha1 = "3f8b1fac9fc843a178930c5f8ab36cea32f62ca5"
 uuid = "bb331ad6-a1cf-11e9-23da-9bcb53c69f6f"
 version = "0.7.16"
 
+[[JOLI4Flux]]
+deps = ["FillArrays", "JOLI", "Zygote"]
+path = "/Users/francisyin/.julia/dev/JOLI4Flux"
+uuid = "c228d1c8-a1cf-11e9-3cb4-9bd0a4cd14fc"
+version = "0.1.2"
+
 [[JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
 git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"

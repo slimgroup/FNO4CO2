@@ -27,9 +27,9 @@ mutable struct pSGD
   acc::IdDict
 end
 
-pSGD(η = 0.001, ρ = 0.99) = pSGLD(η, ρ, IdDict())
+pSGD(;η = 0.001, ρ = 0.99) = pSGD(η, ρ, IdDict())
 
-function apply!(o::pSGLD, x, Δ)
+function apply!(o::pSGD, x, Δ)
     η, ρ = o.eta, o.rho
     acc = get!(o.acc, x, zero(x))::typeof(x)
     @. acc = ρ * acc + (1 - ρ) * Δ^2
