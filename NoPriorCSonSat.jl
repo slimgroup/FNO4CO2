@@ -145,7 +145,7 @@ x = zeros(Float32, n[1], n[2])
 
 θ = Flux.params(x)
 
-opt = pSGD(η=1e-1, ρ = 0.99)
+opt = pSGD(η=2e-1, ρ = 0.99)
 
 figure();
 

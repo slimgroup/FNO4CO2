@@ -547,7 +547,9 @@ version = "1.5.0"
 
 [[InvertibleNetworks]]
 deps = ["CUDA", "ChainRulesCore", "Flux", "JOLI", "LinearAlgebra", "NNlib", "Random", "Statistics", "Test", "Wavelets"]
-path = "/Users/francisyin/.julia/dev/InvertibleNetworks"
+git-tree-sha1 = "0bb215284ceeaf0bbd78418d307a56f733195ad3"
+repo-rev = "compare-blocks"
+repo-url = "https://github.com/ziyiyin97/InvertibleNetworks.jl"
 uuid = "b7115f24-5f92-4794-81e8-23b0ddb121d3"
 version = "2.0.2"
 
@@ -581,7 +583,9 @@ version = "0.7.16"
 
 [[JOLI4Flux]]
 deps = ["FillArrays", "JOLI", "Zygote"]
-path = "/Users/francisyin/.julia/dev/JOLI4Flux"
+git-tree-sha1 = "169e7e3c529e0f2a0b4b1a5024cd34a9a8e221df"
+repo-rev = "master"
+repo-url = "https://github.com/slimgroup/JOLI4Flux.jl.git"
 uuid = "c228d1c8-a1cf-11e9-3cb4-9bd0a4cd14fc"
 version = "0.1.2"
 
@@ -1008,7 +1012,9 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [[SetIntersectionProjection]]
 deps = ["Distributed", "DistributedArrays", "Interpolations", "JOLI", "LinearAlgebra", "Parameters", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "Test", "TimerOutputs"]
-path = "/Users/francisyin/.julia/dev/SetIntersectionProjection"
+git-tree-sha1 = "de221213d48a36fb3f198442f0e75adeb2be4125"
+repo-rev = "master"
+repo-url = "https://github.com/slimgroup/SetIntersectionProjection.jl.git"
 uuid = "335f7d24-6316-57dd-9c3a-df470f2b739e"
 version = "0.2.1"
 
