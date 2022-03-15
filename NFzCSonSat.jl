@@ -136,7 +136,7 @@ noise_ = noise_/norm(noise_) * norm(ystar) * 10f0^(-snr/20f0)
 σ = Float32.(norm(noise_)/sqrt(length(noise_)))
 yobs = ystar .+ noise_
 
-grad_iterations = 200
+grad_iterations = 125
 Grad_Loss = zeros(Float32, grad_iterations)
 
 λ = 1f0
