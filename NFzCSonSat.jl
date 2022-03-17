@@ -15,6 +15,8 @@ using Printf
 using Distributions
 using InvertibleNetworks
 
+Random.seed!(1234)
+
 include("utils.jl");
 include("fno3dstruct.jl");
 include("inversion_utils.jl");
@@ -136,19 +138,25 @@ noise_ = noise_/norm(noise_) * norm(ystar) * 10f0^(-snr/20f0)
 σ = Float32.(norm(noise_)/sqrt(length(noise_)))
 yobs = ystar .+ noise_
 
-grad_iterations = 125
+grad_iterations = 100
 Grad_Loss = zeros(Float32, grad_iterations)
 
-λ = 1f0
+λ = 0.5f0
 
-x = zeros(Float32, n[1], n[2], 1, 1)
+xin = Float32.([1,64])
+xout = Float32.(1:64)
+Itp = joLinInterp1D(xin, xout)
+figure();imshow((Itp * x_true[:,[1,end]]')')
+
+x = reshape(encode((Itp * x_true[:,[1,end]]')'), n[1], n[2], 1, 1)
 z = vec(G(x))
 
 θ = Flux.params(z)
 
-opt = pSGD(η=2e-1, ρ = 0.99)
+opt = pSGD(η=1e-1, ρ = 0.99)
 
-figure();
+fig, ax = subplots(nrows=1,ncols=1,figsize=(20,12))
+figloss, axloss = subplots(nrows=1,ncols=1,figsize=(20,12))
 
 for j=1:grad_iterations
 
@@ -167,7 +175,8 @@ for j=1:grad_iterations
         Flux.Optimise.update!(opt, p, grads[p])
     end
     Grad_Loss[j] = loss
-    imshow(decode(x[:,:,1,1]),vmin=20,vmax=120)
+    ax.imshow(decode(x[:,:,1,1]),vmin=20,vmax=120)
+    axloss.plot(Grad_Loss[1:j])
 end
 
 x_inv = decode(x[:,:,1,1])

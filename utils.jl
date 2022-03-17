@@ -36,12 +36,12 @@ function perm_to_tensor(x_perm,nt,grid,dt)
     return x_out
 end
 
-function decode(x::Matrix{Float32})
+function decode(x::AbstractMatrix{Float32})
     x1 = x .* (std_ .+ eps_) .+ mean_
     return x1
 end
 
-function encode(x::Matrix{Float32})
+function encode(x::AbstractMatrix{Float32})
     x1 = (x .- mean_) ./ (std_ .+ eps_) 
     return x1
 end
