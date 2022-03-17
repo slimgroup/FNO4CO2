@@ -95,7 +95,7 @@ dx, dy = d
 x_test_1 = x_test[:,:,:,:,1:1]
 y_test_1 = y_test[:,:,:,1:1]
 
-grad_iterations = 100
+grad_iterations = 50
 
 function perm_to_tensor(x_perm,nt,grid,dt)
     # input nx*ny, output nx*ny*nt*4*1
@@ -112,10 +112,10 @@ end
 fix_input = randn(Float32, nx, ny)
 temp1 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
 
-nv = nt
+nv = 11
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 
-λ = 1f0 # 2 norm regularization
+λ = 2f0 # 2 norm regularization
 
 function f(x_inv)
     println("evaluate f")
@@ -149,7 +149,6 @@ function fg!(gvec, x_inv)
     return loss
 end
 
-#x = zeros(Float32, nx, ny)
 x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
