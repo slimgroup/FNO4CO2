@@ -209,7 +209,7 @@ function f(x_inv)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
+        loss = 0.5f0 * norm(d_predict-d_obs)^2f0/nv/nsrc
     end
     return loss
 end
@@ -222,7 +222,7 @@ function g!(gvec, x_inv)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
+        loss = 0.5f0 * norm(d_predict-d_obs)^2f0/nv/nsrc
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
@@ -236,63 +236,12 @@ function fg!(gvec, x_inv)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0
+        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0/nv/nsrc
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
     return loss
 end
-
-function gdoptimize(f, g!, fg!, x0::AbstractArray{T}, linesearch;
-                    maxiter::Int = 10000,
-                    g_rtol::T = sqrt(eps(T)), g_atol::T = eps(T), init_α::T=T(1)) where T <: Number
-    x = copy(x0)::AbstractArray{T}
-    gvec = similar(x)::AbstractArray{T}
-    fx = fg!(gvec, x)::T
-    println("Initial loss = $fx")
-    gnorm = norm(gvec)::T
-    gtol = max(g_rtol*gnorm, g_atol)::T
-
-    # Univariate line search functions
-    function ϕ(α)::T
-        return f(x .+ α.*s)
-    end
-    function dϕ(α::T)
-        g!(gvec, x .+ α.*s)
-        return dot(gvec, s)::T
-    end
-    function ϕdϕ(α::T)
-        phi = fg!(gvec, x .+ α.*s)::T
-        dphi = dot(gvec, s)::T
-        return (phi, dphi)::Tuple{T,T}
-    end
-
-    s = similar(gvec)::AbstractArray{T} # Step direction
-
-    iter = 0
-    Loss = zeros(Float32, maxiter)
-    while iter < maxiter && gnorm > gtol
-        iter += 1
-        s .= -gvec::AbstractArray{T}
-
-        dϕ_0 = dot(s, gvec)::T
-        α, fx = linesearch(ϕ, dϕ, ϕdϕ, init_α, fx, dϕ_0)
-
-        @. x = x + α*s::AbstractArray{T}
-        g!(gvec, x)
-        gnorm = norm(gvec)::T
-        Loss[iter] = fx
-        println("iteration $iter, loss = $fx, step length α=$α")
-
-        init_α = 1f1 * α
-        x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
-        imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $iter iter");
-    end
-
-    return (Loss[1:iter], x, iter)
-end
-
-# Grad_Loss, x_inv, numiter = gdoptimize(f, g!, fg!, x0, ls; maxiter=grad_iterations, init_α=5f-2)
 
 x = zeros(Float32, nx, ny)
 
@@ -303,7 +252,6 @@ T = Float32
 
 println("Initial function value: ", f(x))
 
-figure();
 for j=1:grad_iterations
 
     gvec = similar(x)::AbstractArray{T}
@@ -322,28 +270,14 @@ for j=1:grad_iterations
         return fval
     end
 
-    α, fval = ls(ϕ, 2f-1, fval, dot(gvec, p))
+    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
 
     println("Coupled inversion iteration no: ",j,"; function value: ",fval)
     Grad_Loss[j] = fval
-
-    global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
-    imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
-
+    curr_loss = Grad_Loss[1:j]
     # Update model and bound projection
     @. x = x + α*p::AbstractArray{T}
-    JLD2.@save "result/SEGnocheckpointiter$(j)iter.jld2" x
+    JLD2.@save "result/SEGnocheckpointiter$(j)iter.jld2" x curr_loss α p
 end
 
-x_init = decode(x_normalizer,zeros(Float32, nx, ny, 1))[:,:,1]
-
-figure();
-subplot(1,3,1)
-imshow(x_init,vmin=20,vmax=120);title("initial permeability");
-subplot(1,3,2);
-imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $grad_iterations iter");
-subplot(1,3,3);
-imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
-
-figure();
-plot(Grad_Loss)
+JLD2.@save "result/SEGnocheckpoint.jld2" Grad_Loss
