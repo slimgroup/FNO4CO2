@@ -11,6 +11,7 @@ using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter, JLD2
 using LineSearches
+using Optim: optimize, LBFGS, Options, only_fg!
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -109,89 +110,65 @@ function perm_to_tensor(x_perm,nt,grid,dt)
     return x_out
 end
 
-fix_input = randn(Float32, nx, ny)
-temp1 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
-
 nv = 11
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 
-λ = 2f0 # 2 norm regularization
+λ = 0.5f0 # 2 norm regularization
 
-function f(x_inv)
-    println("evaluate f")
-    @time begin
-        out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        loss = 0.5f0 * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
-    end
-    return loss
-end
-
-function g!(gvec, x_inv)
-    println("evaluate g")
-    p = params(x_inv)
-    @time grads = gradient(p) do
-        out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        global loss = 0.5f0 * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
-        return loss
-    end
-    copyto!(gvec, grads.grads[x_inv])
-end
-
-function fg!(gvec, x_inv)
-    println("evaluate f and g")
-    p = params(x_inv)
-    @time grads = gradient(p) do
-        out = decode(y_normalizer,NN(perm_to_tensor(x_inv,nt,grid,dt)))
-        global loss = 0.5f0 * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0 + 0.5f0 * λ * norm(x_inv)^2f0
-        return loss
-    end
-    copyto!(gvec, grads.grads[x_inv])
-    return loss
-end
-
-x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+#x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
-ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
-Grad_Loss = zeros(Float32, grad_iterations+1)
-
-T = Float32
-
-println("Initial function value: ", f(x))
-
-figure();
-for j=1:grad_iterations
-
-    gvec = similar(x)::AbstractArray{T}
-    fval = fg!(gvec, x)::T
-    p = -gvec/norm(gvec, Inf)
-
-    # linesearch
-    function ϕ(α)::T
-        try
-            fval = f(x .+ α.*p)
-        catch e
-            @assert typeof(e) == DomainError
-            fval = T(Inf)
-        end
-        @show α, fval
-        return fval
-    end
-
-    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
-
-    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
-    Grad_Loss[j] = fval
-
-    global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
-    imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
-
-    # Update model and bound projection
-    @. x = x + α*p::AbstractArray{T}
+function f(z)
+    println("evaluate f")
+    out = decode(y_normalizer,NN(perm_to_tensor(z,nt,grid,dt)))
+    misfit = 0.5f0 * (nt-1)/(nv-1) * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0
+    prior = 0.5f0 * λ * norm(z)^2f0
+    loss = misfit + prior
+    @show loss, misfit, prior
+    println("fval is = ", loss)
+    return loss
 end
 
-temp2 = decode(y_normalizer,NN(perm_to_tensor(fix_input,nt,grid,dt)))
-@assert isapprox(temp1, temp2) # test if network is in test mode (i.e. doesnt' change)
+function fg!(fval,g,z)
+    println("evaluate f and g")
+    p = params(z)
+    @time grads = gradient(p) do
+        out = decode(y_normalizer,NN(perm_to_tensor(z,nt,grid,dt)))
+        misfit = 0.5f0 * (nt-1)/(nv-1) * norm(out[survey_indices,:,:]-y_test_1[survey_indices,:,:])^2f0
+        prior = 0.5f0 * λ * norm(z)^2f0
+        global loss = misfit + prior
+        @show loss, misfit, prior
+        return loss
+    end
+    println("fval is = ", loss)
+    copyto!(g, grads.grads[z])
+    return loss
+end
+
+function callb(os)
+    z = os.metadata["x"] #get current optimization variable (latent z)
+    fval[curr_iter] = f(z)
+    println("iter: "*string(curr_iter)*" f_val: "*string(fval[curr_iter]))
+    flush(stdout)
+    axloss.plot(fval[1:curr_iter])
+    ax.imshow(decode(z), vmin=20, vmax=120)
+    global curr_iter += 1
+
+    #if you want the callback to stop the procedure under some conditions, return true
+    return false
+end
+
+std_ = x_normalizer.std_[:,:,1]
+eps_ = x_normalizer.eps_
+mean_ = x_normalizer.mean_[:,:,1]
+curr_iter = 1
+_, ax = subplots(nrows=1, ncols=1, figsize=(20,12))
+_, axloss = subplots(nrows=1, ncols=1, figsize=(20,12))
+
+lbfgs_iters = 50
+fval = zeros(Float32, lbfgs_iters+1)
+res = optimize(only_fg!(fg!), x, LBFGS(), Options(iterations=lbfgs_iters, extended_trace=true, callback=callb))
 
 x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
 
@@ -199,9 +176,6 @@ figure(figsize=(20,12));
 subplot(1,3,1)
 imshow(x_init,vmin=20,vmax=120);title("initial permeability");
 subplot(1,3,2);
-imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $(grad_iterations) iter");
+imshow(decode(res.minimizer),vmin=20,vmax=120);title("inversion by NN, $(grad_iterations) iter");
 subplot(1,3,3);
 imshow(x_true,vmin=20,vmax=120);title("GT permeability");
-
-figure();
-plot(Grad_Loss)

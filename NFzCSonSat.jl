@@ -122,7 +122,7 @@ y_test_1 = deepcopy(conc[:,1:subsample:end,1:subsample:end,1001]);
 
 ################ Forward -- generate data
 
-nv = 5
+nv = 11
 
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 sw = y_test_1[survey_indices,:,:,1]
@@ -130,7 +130,8 @@ sw = y_test_1[survey_indices,:,:,1]
 n = size(x_true)
 nn = prod(n)
 subsamp = 0.25f0
-A = joRestriction(nn, sort(randperm(nn)[1:Int(round(subsamp*nn))]); DDT=Float32, RDT=Float32)*joRomberg(n[1],n[2]; DDT=Float32, RDT=Float32)
+#A = joRestriction(nn, sort(randperm(nn)[1:Int(round(subsamp*nn))]); DDT=Float32, RDT=Float32)*joRomberg(n[1],n[2]; DDT=Float32, RDT=Float32)
+A = joEye(nn; DDT=Float32)
 ystar = vcat([A * vec(sw[i,:,:]) for i = 1:size(sw,1)]...)
 noise_ = randn(Float32, size(ystar))
 snr = 10f0
@@ -141,14 +142,15 @@ yobs = ystar .+ noise_
 grad_iterations = 100
 Grad_Loss = zeros(Float32, grad_iterations)
 
-λ = 0.5f0
+λ = 1f0
 
 xin = Float32.([1,64])
 xout = Float32.(1:64)
 Itp = joLinInterp1D(xin, xout)
 figure();imshow((Itp * x_true[:,[1,end]]')')
 
-x = reshape(encode((Itp * x_true[:,[1,end]]')'), n[1], n[2], 1, 1)
+#x = reshape(encode((Itp * x_true[:,[1,end]]')'), n[1], n[2], 1, 1)
+x = zeros(Float32, n[1], n[2], 1, 1)
 z = vec(G(x))
 
 θ = Flux.params(z)
