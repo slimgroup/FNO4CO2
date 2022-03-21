@@ -72,7 +72,7 @@ for i = 1:nt
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
-        x_train[:,:,i,4,j] .= i*dt
+        x_train[:,:,i,4,j] .= (i-1)*dt
     end
 
     for k = 1:ntest
@@ -98,22 +98,10 @@ y_test_1 = y_test[:,:,:,1:1]
 
 grad_iterations = 50
 
-function perm_to_tensor(x_perm,nt,grid,dt)
-    # input nx*ny, output nx*ny*nt*4*1
-    nx, ny = size(x_perm)
-    x1 = reshape(x_perm,nx,ny,1,1,1)
-    x2 = cat([x1 for i = 1:nt]...,dims=3)
-    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_t = cat([i*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
-    return x_out
-end
-
-nv = 11
+nv = nt
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 
-λ = 0.5f0 # 2 norm regularization
+λ = 1f0 # 2 norm regularization
 
 #x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
 x = zeros(Float32, nx, ny)

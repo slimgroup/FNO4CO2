@@ -15,6 +15,8 @@ using Printf
 using Distributions
 using InvertibleNetworks
 
+Random.seed!(1234)
+
 include("utils.jl");
 include("fno3dstruct.jl");
 include("inversion_utils.jl");
@@ -36,7 +38,7 @@ noise_ = noise_/norm(noise_) *  norm(ystar) * 10f0^(-snr/20f0)
 σ = Float32.(norm(noise_)/sqrt(length(noise_)))
 yobs = ystar + noise_
 
-grad_iterations = 50
+grad_iterations = 500
 Grad_Loss = zeros(Float32, grad_iterations)
 
 ## NF
@@ -60,7 +62,9 @@ G1 = InvertNetRev(G)
 
 λ = 1f0
 
-x = zeros(Float32, n[1], n[2], 1, 1)
+x = reshape(encode(20f0 * ones(Float32, n)), n[1], n[2], 1, 1)
+x_init = decode(x[:,:,1,1])
+#x = zeros(Float32, n[1], n[2], 1, 1)
 z = vec(G(x))
 
 θ = Flux.params(z)
@@ -90,7 +94,7 @@ end
 x_inv = decode(x[:,:,1,1])
 figure(figsize=(20,12));
 subplot(1,3,1)
-imshow(decode(zeros(Float32, n)),vmin=20,vmax=120);title("initial permeability");
+imshow(x_init,vmin=20,vmax=120);title("initial permeability");
 subplot(1,3,2);
 imshow(x_inv,vmin=20,vmax=120);title("inversion by NN w/ NF prior, $grad_iterations iter");
 subplot(1,3,3);

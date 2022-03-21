@@ -22,14 +22,38 @@ function Patchy(sw::AbstractArray{Float32}, vp::AbstractArray{Float32}, vs::Abst
     return Vp_new, Vs_new, rho_new
 end
 
-function perm_to_tensor(x_perm,nt,grid,dt)
+function sample_src(d_obs, nsrc, rand_ns)
+    datalength = Int(length(d_obs)/nsrc)
+    return vcat([d_obs[(rand_ns[i]-1)*datalength+1:rand_ns[i]*datalength] for i = 1:length(rand_ns)]...)
+end
+
+
+function perm_to_tensor(x_perm::AbstractMatrix{Float32},nt::Int,grid::Array,dt::Float32)
     # input nx*ny, output nx*ny*nt*4*1
     nx, ny = size(x_perm)
     x1 = reshape(x_perm,nx,ny,1,1,1)
     x2 = cat([x1 for i = 1:nt]...,dims=3)
     grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
     grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_t = cat([i*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_t = cat([(i-1)*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
     x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
     return x_out
+end
+
+function perm_to_tensor(x_perm::AbstractMatrix{Float32},tsample::Vector{Float32},grid::Array)
+    # input nx*ny, output nx*ny*nt*4*1
+    nx, ny = size(x_perm)
+    nt = length(tsample)
+    x1 = reshape(x_perm,nx,ny,1,1,1)
+    x2 = cat([x1 for i = 1:nt]...,dims=3)
+    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    grid_t = cat([tsample[i]*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
+    x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
+    return x_out
+end
+
+function jitter(nsrc::Int, nssample::Int)
+    npatch = Int(nsrc/nssample)
+    return rand(1:npatch, nssample) .+ convert(Vector{Int},0:npatch:(nsrc-1))
 end

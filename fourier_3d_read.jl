@@ -70,7 +70,7 @@ for i = 1:nt
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
-        x_train[:,:,i,4,j] .= i*dt
+        x_train[:,:,i,4,j] .= (i-1)*dt
     end
 
     for k = 1:ntest
@@ -130,7 +130,7 @@ for i = 1:9
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_train_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Training sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("Training sample 1: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability; error=$(100*norm(y_fit_1-y_train_1)/norm(y_train_1))%")
 
 savefig("result/2phase_trainsample1.png")
 
@@ -149,7 +149,7 @@ for i = 1:9
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_train_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Training sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("Training sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability; error=$(100*norm(y_fit_2-y_train_2)/norm(y_train_2))%")
 
 savefig("result/2phase_trainsample2.png")
 
@@ -168,7 +168,7 @@ for i = 1:9
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_train_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Training sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("Training sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability; error=$(100*norm(y_fit_3-y_train_3)/norm(y_train_3))%")
 
 savefig("result/2phase_trainsample3.png")
 
@@ -190,7 +190,7 @@ for i = 1:9
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_1)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("1st row predict; 2nd row grond truth; 3rd row 10*diff; last row permeability")
+suptitle("Test sample 1: 1st row predict; 2nd row grond truth; 3rd row 10*diff; last row permeability; error=$(100*norm(y_test_1-y_predict_1)/norm(y_test_1))%")
 
 savefig("result/2phase_testsample1.png")
 
@@ -234,7 +234,7 @@ for i = 1:9
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_2)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Test sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("Test sample 2: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability; error=$(100*norm(y_test_2-y_predict_2)/norm(y_test_2))%")
 
 savefig("result/2phase_testsample2.png")
 
@@ -254,6 +254,6 @@ for i = 1:9
 end
 subplot(4,9,28);
 imshow(decode(x_normalizer,x_test_3)[:,:,1,1,1],vmin=20,vmax=120)
-suptitle("Test sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability")
+suptitle("Test sample 3: 1st row predict; 2nd row grond truth; 3rd row 20*diff; last row permeability; error=$(100*norm(y_test_3-y_predict_3)/norm(y_test_3))%")
 
 savefig("result/2phase_testsample3.png")
