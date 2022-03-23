@@ -15,6 +15,7 @@ using ProgressMeter, JLD2
 using Images
 using LineSearches
 using JUDI, JUDI4Flux
+using SlimPlotting
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
