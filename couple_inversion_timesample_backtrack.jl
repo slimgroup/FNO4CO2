@@ -246,6 +246,7 @@ for j=1:grad_iterations
 
     # Update model and bound projection
     global x = prj(x .+ α .* p)::Matrix{Float32}
+    plot_velocity(decode(x), vmin=10f0, vmax=120f0; ax=ax, new_fig=false)
     ax.imshow(decode(x),vmin=20,vmax=120);ax.set_title("inversion after $j iterations")
     axloss.plot(hisloss[1:j])
     axmisfit.plot(hismisfit[1:j])
