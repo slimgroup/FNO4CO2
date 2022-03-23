@@ -22,6 +22,7 @@ Random.seed!(3)
 
 include("utils.jl");
 include("fno3dstruct.jl");
+include("inversion_utils.jl")
 
 ntrain = 1000
 ntest = 100
@@ -45,7 +46,8 @@ x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain]);
 x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end]);
 
 nv = 11
-survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
+survey_indices = Int.(round.(range(1, stop=18, length=nv)))
+tsample = (survey_indices .- 1) .* dt
 
 y_train_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,1:ntrain]);
 y_test_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,end-ntest+1:end]);
@@ -107,15 +109,10 @@ dx, dy = d
 x_test_1 = x_test[:,:,:,:,1:1]
 y_test_1 = y_test[:,:,:,1:1]
 
-grad_iterations = 60
+grad_iterations = 100
 std_ = x_normalizer.std_[:,:,1]
 eps_ = x_normalizer.eps_
 mean_ = x_normalizer.mean_[:,:,1]
-
-nv = 11
-survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
-tsample = (survey_indices .- 1) .* dt
-λ = 1f0 # 2 norm regularization
 
 function f(x_inv)
     println("evaluate f")
@@ -158,8 +155,9 @@ function fg!(gvec, x_inv)
     return loss
 end
 
-x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
-#x = zeros(Float32, nx, ny)
+λ = 0f0 # 2 norm regularization
+#x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
@@ -201,6 +199,10 @@ for j=1:grad_iterations
 
     # Update model and bound projection
     global x = prj(x .+ α.*p)::AbstractArray{T}
+    #global λ = Float32(λ*sqrt(j)/sqrt(j+1))
+    #if j>=20
+    #    global λ = 0f0
+    #end
 
     global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
     imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");

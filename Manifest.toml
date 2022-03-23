@@ -559,9 +559,9 @@ version = "0.13.2"
 
 [[IntervalSets]]
 deps = ["Dates", "EllipsisNotation", "Statistics"]
-git-tree-sha1 = "3cc368af3f110a767ac786560045dceddfc16758"
+git-tree-sha1 = "bcf640979ee55b652f3b01650444eb7bbe3ea837"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
-version = "0.5.3"
+version = "0.5.4"
 
 [[Intervals]]
 deps = ["Dates", "Printf", "RecipesBase", "Serialization", "TimeZones"]
@@ -621,9 +621,11 @@ version = "0.21.3"
 
 [[JUDI]]
 deps = ["DSP", "Dierckx", "Distributed", "FFTW", "JOLI", "LinearAlgebra", "PyCall", "Reexport", "SegyIO"]
-git-tree-sha1 = "0da3aa16a5fcf73f13e68bf5ba35d9edcf8512ed"
+git-tree-sha1 = "f07654c24f217528ef2661ba8ea88c0bf20e400d"
+repo-rev = "LinPseudoHess"
+repo-url = "https://github.com/slimgroup/JUDI.jl.git"
 uuid = "f3b833dc-6b2e-5b9c-b940-873ed6319979"
-version = "2.6.5"
+version = "2.6.4"
 
 [[JUDI4Flux]]
 deps = ["Flux", "JOLI", "JUDI", "SegyIO", "Zygote"]
