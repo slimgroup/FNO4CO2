@@ -171,14 +171,8 @@ Ps = judiProjection(info, srcGeometry)
 
 F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:nv]
 
-try
-    JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
-    println("found data, loading")
-catch e
-    println("generating data now")
-    d_obs = [F[i]*q for i = 1:nv]
-    JLD2.@save "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
-end
+JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+println("found data, loading")
 
 λ = 0f0 # 2 norm regularization
 
@@ -254,8 +248,7 @@ for j=1:grad_iterations
 
     # Update model and bound projection
     global x = prj(x .+ α .* p)::Matrix{Float32}
-    plot_velocity(decode(x), d; vmin=10f0, vmax=120f0, ax=ax, new_fig=false)
-    ax.imshow(decode(x),vmin=20,vmax=120);ax.set_title("inversion after $j iterations")
+    plot_velocity(decode(x), d; vmin=10f0, vmax=130f0, ax=ax, new_fig=false, name="inversion after $j iterations");
     axloss.plot(hisloss[1:j])
     axmisfit.plot(hismisfit[1:j])
     axprior.plot(hisprior[1:j])
