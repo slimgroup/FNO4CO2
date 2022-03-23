@@ -1057,7 +1057,9 @@ version = "0.9.4"
 
 [[SlimPlotting]]
 deps = ["ColorSchemes", "PyPlot", "Statistics"]
-git-tree-sha1 = "789014569e9be4a1520c61eee9d7f055992e5b8f"
+git-tree-sha1 = "eea6a824915a33f580bc1b20f783213fc83025ab"
+repo-rev = "master"
+repo-url = "https://github.com/ziyiyin97/SlimPlotting.jl.git"
 uuid = "f6d04670-764e-495b-a720-91c3c9a588ff"
 version = "0.1.2"
 

@@ -137,7 +137,7 @@ o = (0f0, 0f0)
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
 
-nsrc = 15
+nsrc = 16
 nrec = n[2]
 
 model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
@@ -171,12 +171,19 @@ Ps = judiProjection(info, srcGeometry)
 
 F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:nv]
 
-JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+try
+    JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+    println("found data, loading")
+catch e
+    println("generating data now")
+    d_obs = [F[i]*q for i = 1:nv]
+    JLD2.@save "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+end
 
-λ = 1f0 # 2 norm regularization
+λ = 0f0 # 2 norm regularization
 
-x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
-#x = zeros(Float32, nx, ny)
+#x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
 function prj(x; vmin=10f0, vmax=130f0)
@@ -193,7 +200,7 @@ figprior, axprior = subplots(nrows=1,ncols=1,figsize=(20,12));axprior.set_title(
 hisloss = zeros(Float32, grad_iterations)
 hismisfit = zeros(Float32, grad_iterations)
 hisprior = zeros(Float32, grad_iterations)
-nssample = 5
+nssample = 8
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 fval = Inf32
@@ -247,7 +254,7 @@ for j=1:grad_iterations
 
     # Update model and bound projection
     global x = prj(x .+ α .* p)::Matrix{Float32}
-    plot_velocity(decode(x), vmin=10f0, vmax=120f0; ax=ax, new_fig=false)
+    plot_velocity(decode(x), d; vmin=10f0, vmax=120f0, ax=ax, new_fig=false)
     ax.imshow(decode(x),vmin=20,vmax=120);ax.set_title("inversion after $j iterations")
     axloss.plot(hisloss[1:j])
     axmisfit.plot(hismisfit[1:j])
