@@ -173,6 +173,7 @@ F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:nv]
 
 try
     JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+    global d_obs = d_obs
     println("found data, loading")
 catch e
     println("generating")
