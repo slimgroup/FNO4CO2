@@ -208,6 +208,7 @@ fval = Inf32
 misfit = Inf32
 prior = Inf32
 α = 5f0
+
 for j=1:grad_iterations
 
     println("Iteration ", j)
