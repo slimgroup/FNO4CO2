@@ -5,6 +5,7 @@ using DrWatson
 @quickactivate "FNO"
 import Pkg; Pkg.instantiate()
 
+ENV["MPLBACKEND"]="qt5agg"
 using PyPlot
 using BSON
 using Flux, Random, FFTW, Zygote, NNlib
@@ -14,6 +15,7 @@ using ProgressMeter, JLD2
 using Images
 using LineSearches
 using JUDI, JUDI4Flux
+using SlimPlotting
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -27,6 +29,7 @@ include("inversion_utils.jl");
 include("pSGLD.jl")
 include("pSGD.jl")
 include("InvertUtils.jl")
+include("illum.jl")
 
 ntrain = 1000
 ntest = 100
@@ -50,7 +53,8 @@ x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain]);
 x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end]);
 
 nv = 11
-survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
+survey_indices = convert(Vector{Int},2:2:2*nv)
+tsample = (survey_indices .- 1) .* dt
 
 y_train_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,1:ntrain]);
 y_test_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,end-ntest+1:end]);
@@ -117,10 +121,6 @@ std_ = x_normalizer.std_[:,:,1]
 eps_ = x_normalizer.eps_
 mean_ = x_normalizer.mean_[:,:,1]
 
-nv = 11
-survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
-tsample = (survey_indices .- 1) .* dt
-
 vp = 3500 * ones(Float32,n)
 vs = vp ./ sqrt(3f0)
 phi = 0.25f0 * ones(Float32,n)
@@ -137,10 +137,10 @@ o = (0f0, 0f0)
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
 
-nsrc = 15
+nsrc = 16
 nrec = n[2]
 
-model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
+model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
 
 timeS = timeR = 750f0
 dtS = dtR = 1f0
@@ -172,6 +172,7 @@ Ps = judiProjection(info, srcGeometry)
 F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:nv]
 
 JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+println("found data, loading")
 
 λ = 0f0 # 2 norm regularization
 
@@ -185,51 +186,61 @@ function prj(x; vmin=10f0, vmax=130f0)
     return encode(z)
 end
 
-opt = pSGD(η=2e-2, ρ = 0.99)
-
 fig, ax = subplots(nrows=1,ncols=1,figsize=(20,12))
 figloss, axloss = subplots(nrows=1,ncols=1,figsize=(20,12));axloss.set_title("loss");
 figmisfit, axmisfit = subplots(nrows=1,ncols=1,figsize=(20,12));axmisfit.set_title("misfit");
 figprior, axprior = subplots(nrows=1,ncols=1,figsize=(20,12));axprior.set_title("prior");
 
+
+x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
+figure(figsize=(20,12))
+plot_velocity(x_true, d; vmin=10f0, vmax=130f0, new_fig=false, name="ground truth");
+
 hisloss = zeros(Float32, grad_iterations)
 hismisfit = zeros(Float32, grad_iterations)
 hisprior = zeros(Float32, grad_iterations)
+nssample = 8
 
-nssample = 5
+ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
+fval = Inf32
+misfit = Inf32
+prior = Inf32
+opt = Flux.Optimise.ADAMW(0.5f0, (0.9f0, 0.999f0), 1f-4)
 for j=1:grad_iterations
 
     println("Iteration ", j)
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]
+    G_stack = [ForwardIllum(F[i][rand_ns[i]],q[rand_ns[i]]) for i = 1:nv]
     d_obs_sample = [sample_src(d_obs[i], nsrc, rand_ns[i]) for i = 1:nv]
+
     θ = Flux.params(x)
     @time grads = gradient(θ) do
         sw = decode(y_normalizer,NN(perm_to_tensor(x,tsample,grid)))
         vp_stack = [(Patchy(sw[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
-        m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
-        G_stack = [Forward(F[i][rand_ns[i]],q[rand_ns[i]]) for i = 1:nv]
-        d_predict = [G_stack[i](m_stack[i]) for i = 1:nv]
-        global misfit = 0.5f0/nssample/nv * norm(d_predict-d_obs_sample)^2f0
-        global prior = 0.5f0 * λ^2f0 * norm(x)^2f0
-        global loss = misfit + prior
+        d_predict = [G_stack[i]((1000f0 ./ vp_stack[i]).^2f0) for i = 1:nv]
+        global misfit = Float32(0.5f0/nssample/nv) * norm(d_predict-d_obs_sample).^2f0
+        global prior = 0.5f0 * λ^2f0 * sum(x.^2f0)
+        global fval = misfit + prior
         @show misfit, prior
-        return loss
+        return fval
     end
     for p in θ
         Flux.Optimise.update!(opt, p, grads[p])
     end
-    hisloss[j] = loss
+    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
+    hisloss[j] = fval
     hismisfit[j] = misfit
     hisprior[j] = prior
-    global x = prj(x)
-    ax.imshow(decode(x),vmin=20,vmax=120);ax.set_title("inversion after $j iterations")
+
+    # Update model and bound projection
+    global x = prj(x)::Matrix{Float32}
+    plot_velocity(decode(x), d; vmin=10f0, vmax=130f0, ax=ax, new_fig=false, name="inversion after $j iterations");
     axloss.plot(hisloss[1:j])
     axmisfit.plot(hismisfit[1:j])
     axprior.plot(hisprior[1:j])
-    println("Coupled inversion iteration no: ",j,"; function value: ",loss)
-end
+    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
 
-x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
+end
 
 figure(figsize=(20,12));
 subplot(1,3,1)

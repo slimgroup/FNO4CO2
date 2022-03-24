@@ -13,6 +13,7 @@ using CUDA
 using ProgressMeter, JLD2
 using Images
 using LineSearches
+using SlimPlotting
 
 CUDA.culiteral_pow(::typeof(^), a::Complex{Float32}, b::Val{2}) = real(conj(a)*a)
 CUDA.sqrt(a::Complex) = cu(sqrt(a))
@@ -46,7 +47,7 @@ x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain]);
 x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end]);
 
 nv = 11
-survey_indices = Int.(round.(range(1, stop=18, length=nv)))
+survey_indices = Int.(round.(range(2, stop=46, length=nv)))
 tsample = (survey_indices .- 1) .* dt
 
 y_train_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,1:ntrain]);
@@ -109,7 +110,7 @@ dx, dy = d
 x_test_1 = x_test[:,:,:,:,1:1]
 y_test_1 = y_test[:,:,:,1:1]
 
-grad_iterations = 100
+grad_iterations = 50
 std_ = x_normalizer.std_[:,:,1]
 eps_ = x_normalizer.eps_
 mean_ = x_normalizer.mean_[:,:,1]
@@ -172,8 +173,11 @@ function prj(x; vmin=10f0, vmax=130f0)
 end
 
 println("Initial function value: ", f(x))
+fig, ax = subplots(nrows=1,ncols=1,figsize=(20,12))
+x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
+plot_velocity(x_true, d; vmin=10f0, vmax=130f0, ax=ax, new_fig=false, name="ground truth");
 
-figure();
+fig, ax = subplots(nrows=1,ncols=1,figsize=(20,12))
 for j=1:grad_iterations
 
     gvec = similar(x)::AbstractArray{T}
@@ -204,11 +208,10 @@ for j=1:grad_iterations
     #    global λ = 0f0
     #end
 
-    global x_inv = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
-    imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $j iter");
+    plot_velocity(decode(x), d; vmin=10f0, vmax=130f0, ax=ax, new_fig=false, name="inversion after $j iterations");
+    ax.set_title("inversion by NN, $j iter");
 end
 
-x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
 
 figure(figsize=(20,12));
 subplot(1,3,1)

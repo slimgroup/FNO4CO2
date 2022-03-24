@@ -116,7 +116,7 @@ dx, dy = d
 x_test_1 = x_test[:,:,:,:,1:1]
 y_test_1 = y_test[:,:,:,1:1]
 
-grad_iterations = 60
+grad_iterations = 400
 std_ = x_normalizer.std_[:,:,1]
 eps_ = x_normalizer.eps_
 mean_ = x_normalizer.mean_[:,:,1]
@@ -137,8 +137,8 @@ o = (0f0, 0f0)
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
 
-nsrc = 16
-nrec = n[2]
+nsrc = 32
+nrec = Int(round((n[2]-1)*d[2]))
 
 model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
 
@@ -171,13 +171,19 @@ Ps = judiProjection(info, srcGeometry)
 
 F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:nv]
 
-JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
-println("found data, loading")
+try
+    JLD2.@load "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+    println("found data, loading")
+catch e
+    println("generating")
+    global d_obs = [F[i]*q for i = 1:nv]
+    JLD2.@save "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
+end
 
-λ = 0f0 # 2 norm regularization
+λ = 1f0 # 2 norm regularization
 
-#x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
-x = zeros(Float32, nx, ny)
+x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+#x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
 function prj(x; vmin=10f0, vmax=130f0)
