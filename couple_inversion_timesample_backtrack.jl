@@ -53,7 +53,7 @@ x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain]);
 x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end]);
 
 nv = 11
-survey_indices = convert(Vector{Int},2:2:2*nv)
+survey_indices = Int.(round.(range(1, stop=36, length=nv)))
 tsample = (survey_indices .- 1) .* dt
 
 y_train_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,1:ntrain]);
@@ -181,10 +181,10 @@ catch e
     JLD2.@save "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
 end
 
-λ = 1f0 # 2 norm regularization
+λ = 0f0 # 2 norm regularization
 
-x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
-#x = zeros(Float32, nx, ny)
+#x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
+x = zeros(Float32, nx, ny)
 x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
 
 function prj(x; vmin=10f0, vmax=130f0)
@@ -212,7 +212,7 @@ for j=1:grad_iterations
 
     println("Iteration ", j)
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]
-    G_stack = [ForwardIllum(F[i][rand_ns[i]],q[rand_ns[i]]) for i = 1:nv]
+    G_stack = [Forward(F[i][rand_ns[i]],q[rand_ns[i]]) for i = 1:nv]
     d_obs_sample = [sample_src(d_obs[i], nsrc, rand_ns[i]) for i = 1:nv]
 
     θ = Flux.params(x)
