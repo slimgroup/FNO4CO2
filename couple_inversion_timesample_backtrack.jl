@@ -36,28 +36,26 @@ ntest = 100
 
 BSON.@load "data/TrainedNet/2phasenet_200.bson" NN w batch_size Loss modes width learning_rate epochs gamma step_size;
 
-n = (64,64)
- # dx, dy in m
+s = 4
+st = 2
+
+n = (64,64) # dx, dy in m
 d = (1f0/64, 1f0/64) # in the training phase
 
-nt = 51
-#dt = 20f0    # dt in day
-dt = 1f0/nt
+nt = 26
+dt = 2f0/51f0
 
 perm = matread("data/data/perm.mat")["perm"];
 conc = matread("data/data/conc.mat")["conc"];
 
-s = 4
-
 x_train_ = convert(Array{Float32},perm[1:s:end,1:s:end,1:ntrain]);
 x_test_ = convert(Array{Float32},perm[1:s:end,1:s:end,end-ntest+1:end]);
 
-nv = 11
-survey_indices = Int.(round.(range(1, stop=36, length=nv)))
-tsample = (survey_indices .- 1) .* dt
+y_train_ = convert(Array{Float32},conc[1:st:end,1:s:end,1:s:end,1:ntrain]);
+y_test_ = convert(Array{Float32},conc[1:st:end,1:s:end,1:s:end,end-ntest+1:end]);
 
-y_train_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,1:ntrain]);
-y_test_ = convert(Array{Float32},conc[survey_indices,1:s:end,1:s:end,end-ntest+1:end]);
+nv = 11
+survey_indices = Int.(round.(range(1, stop=11, length=nv)))
 
 y_train_ = permutedims(y_train_,[2,3,1,4]);
 y_test = permutedims(y_test_,[2,3,1,4]);
@@ -76,22 +74,22 @@ grid = zeros(Float32,n[1],n[2],2)
 grid[:,:,1] = repeat(x',n[2])'
 grid[:,:,2] = repeat(z,n[1])
 
-x_train = zeros(Float32,n[1],n[2],nv,4,ntrain)
-x_test = zeros(Float32,n[1],n[2],nv,4,ntest)
+x_train = zeros(Float32,n[1],n[2],nt,4,ntrain)
+x_test = zeros(Float32,n[1],n[2],nt,4,ntest)
 
-for i = 1:nv
+for i = 1:nt
     x_train[:,:,i,1,:] = deepcopy(x_train_)
     x_test[:,:,i,1,:] = deepcopy(x_test_)
     for j = 1:ntrain
         x_train[:,:,i,2,j] = grid[:,:,1]
         x_train[:,:,i,3,j] = grid[:,:,2]
-        x_train[:,:,i,4,j] .= (survey_indices[i]-1)*dt
+        x_train[:,:,i,4,j] .= (i-1)*dt
     end
 
     for k = 1:ntest
         x_test[:,:,i,2,k] = grid[:,:,1]
         x_test[:,:,i,3,k] = grid[:,:,2]
-        x_test[:,:,i,4,k] .= (survey_indices[i]-1)*dt
+        x_test[:,:,i,4,k] .= (i-1)*dt
     end
 end
 
@@ -102,19 +100,10 @@ Flux.testmode!(NN.conv1.bn1);
 Flux.testmode!(NN.conv1.bn2);
 Flux.testmode!(NN.conv1.bn3);
 
-x_test_1 = x_test[:,:,:,:,1:1]
-x_test_2 = x_test[:,:,:,:,2:2]
-x_test_3 = x_test[:,:,:,:,3:3]
-
-y_test_1 = y_test[:,:,:,1]
-y_test_2 = y_test[:,:,:,2]
-y_test_3 = y_test[:,:,:,3]
+sw_true = y_test[:,:,survey_indices,1]
 
 nx, ny = n
 dx, dy = d
-
-x_test_1 = x_test[:,:,:,:,1:1]
-y_test_1 = y_test[:,:,:,1:1]
 
 grad_iterations = 400
 std_ = x_normalizer.std_[:,:,1]
@@ -127,7 +116,7 @@ phi = 0.25f0 * ones(Float32,n)
 
 rho = 2200 * ones(Float32,n)
 
-vp_stack = [(Patchy(y_test_1[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
+vp_stack = [(Patchy(sw_true[:,:,i]',vp,vs,rho,phi))[1] for i = 1:nv]
 
 ##### Wave equation
 
@@ -185,7 +174,7 @@ end
 
 #x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
 x = zeros(Float32, nx, ny)
-x_init = decode(x_normalizer,reshape(x,nx,ny,1))[:,:,1]
+x_init = decode(x)
 
 function prj(x; vmin=10f0, vmax=130f0)
     y = decode(x)
@@ -201,13 +190,14 @@ figprior, axprior = subplots(nrows=1,ncols=1,figsize=(20,12));axprior.set_title(
 hisloss = zeros(Float32, grad_iterations)
 hismisfit = zeros(Float32, grad_iterations)
 hisprior = zeros(Float32, grad_iterations)
-nssample = 8
+nssample = 4
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 fval = Inf32
 misfit = Inf32
 prior = Inf32
 α = 5f0
+
 
 for j=1:grad_iterations
 
@@ -216,16 +206,20 @@ for j=1:grad_iterations
     G_stack = [Forward(F[i][rand_ns[i]],q[rand_ns[i]]) for i = 1:nv]
     d_obs_sample = [sample_src(d_obs[i], nsrc, rand_ns[i]) for i = 1:nv]
 
+    function f(x)
+        sw = decode(y_normalizer,NN(perm_to_tensor(x,nt,grid,dt)))[:,:,survey_indices,1]
+        vp_stack = [(Patchy(sw[:,:,i]',vp,vs,rho,phi))[1] for i = 1:nv]
+        d_predict = [G_stack[i]((1f3 ./ vp_stack[i]).^2f0) for i = 1:nv]
+        global misfit = 0.5f0/nssample/nv * norm(d_predict-d_obs_sample)^2f0
+        global prior = 0.5f0 * λ^2f0 * norm(x)^2f0
+        global fval = misfit + prior
+        @show fval, misfit, prior
+        return fval
+    end
+
     θ = Flux.params(x)
     @time grads = gradient(θ) do
-        sw = decode(y_normalizer,NN(perm_to_tensor(x,tsample,grid)))
-        vp_stack = [(Patchy(sw[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
-        d_predict = [G_stack[i]((1000f0 ./ vp_stack[i]).^2f0) for i = 1:nv]
-        global misfit = Float32(0.5f0/nssample/nv) * norm(d_predict-d_obs_sample).^2f0
-        global prior = 0.5f0 * λ^2f0 * sum(x.^2f0)
-        global fval = misfit + prior
-        @show misfit, prior
-        return fval
+        return f(x)
     end
     gvec = grads.grads[x]::Matrix{Float32}
     p = -gvec/norm(gvec, Inf)
@@ -233,15 +227,10 @@ for j=1:grad_iterations
     # linesearch
     function ϕ(α)::Float32
         try
-            sw = decode(y_normalizer,NN(perm_to_tensor(prj(x .+ α.*p),tsample,grid)))
-            vp_stack = [(Patchy(sw[:,:,i,1]',vp,vs,rho,phi))[1] for i = 1:nv]
-            d_predict = [G_stack[i]((1000f0 ./ vp_stack[i]).^2f0) for i = 1:nv]
-            global misfit = 0.5f0/nssample/nv * norm(d_predict-d_obs_sample)^2f0
-            global prior = 0.5f0 * λ^2f0 * norm(x)^2f0
-            global fval = misfit + prior
+            global fval = f(prj(x + α * p))
         catch e
             @assert typeof(e) == DomainError
-            fval = Float32(Inf)
+            global fval = Float32(Inf)
         end
         @show α, fval
         return fval
@@ -249,7 +238,6 @@ for j=1:grad_iterations
 
     global α, fval = ls(ϕ, α, fval, dot(gvec, p))
 
-    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
     hisloss[j] = fval
     hismisfit[j] = misfit
     hisprior[j] = prior

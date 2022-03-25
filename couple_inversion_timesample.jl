@@ -206,7 +206,7 @@ nssample = 4
 fval = Inf32
 misfit = Inf32
 prior = Inf32
-opt = Flux.Optimise.ADAMW(2f-1, (0.9f0, 0.999f0), 1f-4)
+opt = Flux.Optimise.ADAMW(1f-1, (0.9f0, 0.999f0), 1f-4)
 
 for j=1:grad_iterations
 
