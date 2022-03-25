@@ -5,7 +5,7 @@ using DrWatson
 @quickactivate "FNO"
 import Pkg; Pkg.instantiate()
 
-ENV["MPLBACKEND"]="qt5agg"
+ENV["MPLBACKEND"]="agg"
 using PyPlot
 using BSON
 using Flux, Random, FFTW, Zygote, NNlib
@@ -105,7 +105,7 @@ sw_true = y_test[:,:,survey_indices,1]
 nx, ny = n
 dx, dy = d
 
-grad_iterations = 400
+grad_iterations = 800
 std_ = x_normalizer.std_[:,:,1]
 eps_ = x_normalizer.eps_
 mean_ = x_normalizer.mean_[:,:,1]
@@ -248,12 +248,18 @@ for j=1:grad_iterations
     axloss.plot(hisloss[1:j])
     axmisfit.plot(hismisfit[1:j])
     axprior.plot(hisprior[1:j])
-    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
 
+    fig.savefig("result/perm$(j).png", bbox_inches="tight",dpi=300)
+    figloss.savefig("result/loss$(j).png", bbox_inches="tight",dpi=300)
+    figmisfit.savefig("result/misfit$(j).png", bbox_inches="tight",dpi=300)
+    figprior.savefig("result/prior$(j).png", bbox_inches="tight",dpi=300)
+
+    println("Coupled inversion iteration no: ",j,"; function value: ",fval)
+    JLD2.@save "result/coupleinversioniter$(j).jld2" x fval gvec hisloss hismisfit hisprior
 end
 
 
-x_true = decode(x_normalizer,x_test_1[:,:,1:1,1,1])[:,:,1]
+x_true = decode(x_test[:,:,1,1,1])
 
 figure(figsize=(20,12));
 subplot(1,3,1)
