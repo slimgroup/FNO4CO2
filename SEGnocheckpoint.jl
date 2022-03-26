@@ -20,6 +20,7 @@ Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast
 
 include("utils.jl");
 include("fno3dstruct.jl");
+include("inversion_utils.jl");
 
 Random.seed!(3)
 
@@ -100,9 +101,33 @@ y_test_1 = deepcopy(conc[:,1:subsample:end,1:subsample:end,1001]);
 
 nv = 11
 
-survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
+survey_indices = Int.(round.(range(1, stop=21, length=nv)))
 
 sw = y_test_1[survey_indices,:,:,1]
+
+##### Rock physics
+
+function Patchy(sw::AbstractArray{Float32}, vp::AbstractArray{Float32}, vs::AbstractArray{Float32}, rho::AbstractArray{Float32}, phi::AbstractArray{Float32}; bulk_min = 36.6f9, bulk_fl1 = 2.735f9, bulk_fl2 = 0.125f9, ρw = 501.9f0, ρo = 1053.0f0)
+
+    bulk_sat1 = rho .* (vp.^2f0 - 4f0/3f0 .* vs.^2f0)
+    shear_sat1 = rho .* (vs.^2f0)
+
+    patch_temp = bulk_sat1 ./(bulk_min .- bulk_sat1) - 
+    bulk_fl1 ./ phi ./ (bulk_min .- bulk_fl1) + 
+    bulk_fl2 ./ phi ./ (bulk_min .- bulk_fl2)
+
+    bulk_sat2 = bulk_min./(1f0./patch_temp .+ 1f0)
+
+    bulk_new = 1f0./( (1f0.-sw)./(bulk_sat1+4f0/3f0*shear_sat1) 
+    + sw./(bulk_sat2+4f0/3f0*shear_sat1) ) - 4f0/3f0*shear_sat1
+
+    rho_new = rho + phi .* sw * (ρw - ρo)
+
+    Vp_new = sqrt.((bulk_new+4f0/3f0*shear_sat1)./rho_new)
+    Vs_new = sqrt.((shear_sat1)./rho_new)
+
+    return Vp_new, Vs_new, rho_new
+end
 
 n = (size(sw,3), size(sw,2))
 
@@ -122,10 +147,10 @@ o = (0f0, 0f0)
 extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
 
-nsrc = 15
+nsrc = 4
 nrec = n[2]
 
-model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
+model = [Model(n, d, o, (1000f0 ./ vp_stack[i]).^2f0; nb = 50) for i = 1:nv]
 
 timeS = timeR = 750f0
 dtS = dtR = 1f0
@@ -158,25 +183,14 @@ F = [Pr*judiModeling(info, model[i]; options=opt)*Ps' for i = 1:nv]
 
 d_obs = [F[i]*q for i = 1:nv]
 
-JLD2.@save "data/data/time_lapse_data.jld2" d_obs
+JLD2.@save "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc.jld2" d_obs
 
 G = Forward(F[1],q)
 
-x_perm = 20*ones(Float32,n[1],n[2],1)
-
-grad_iterations = 200
-
-function perm_to_tensor(x_perm,nt,grid,dt)
-    # input nx*ny, output nx*ny*nt*4*1
-    nx, ny = size(x_perm)
-    x1 = reshape(x_perm,nx,ny,1,1,1)
-    x2 = cat([x1 for i = 1:nt]...,dims=3)
-    grid_1 = cat([reshape(grid[:,:,1],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_2 = cat([reshape(grid[:,:,2],nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    grid_t = cat([i*dt*ones(Float32,nx,ny,1,1,1) for i = 1:nt]...,dims=3)
-    x_out = cat(x2,grid_1,grid_2,grid_t,dims=4)
-    return x_out
-end
+grad_iterations = 100
+std_ = x_normalizer.std_[:,:,1]
+eps_ = x_normalizer.eps_
+mean_ = x_normalizer.mean_[:,:,1]
 
 function f(x_inv)
     println("evaluate f")
@@ -185,7 +199,7 @@ function f(x_inv)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0/nv/nsrc
+        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
     end
     return loss
 end
@@ -198,7 +212,7 @@ function g!(gvec, x_inv)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        loss = 0.5f0 * norm(d_predict-d_obs)^2f0/nv/nsrc
+        loss = 0.5f0 * norm(d_predict-d_obs)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
@@ -212,7 +226,7 @@ function fg!(gvec, x_inv)
         vp_stack = [(Patchy(sw[:,:,survey_indices[i],1]',vp,vs,rho,phi))[1] for i = 1:nv]
         m_stack = [(1000f0 ./ vp_stack[i]).^2f0 for i = 1:nv]
         d_predict = [G(m_stack[i]) for i = 1:nv]
-        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0/nv/nsrc
+        global loss = 0.5f0 * norm(d_predict-d_obs)^2f0
         return loss
     end
     copyto!(gvec, grads.grads[x_inv])
@@ -221,12 +235,13 @@ end
 
 x = zeros(Float32, nx, ny)
 
-ls = BackTracking(c_1=1f-4,iterations=25,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
-Grad_Loss = zeros(Float32, grad_iterations+1)
+ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
+hisloss = zeros(Float32, grad_iterations)
 
 T = Float32
 
-println("Initial function value: ", f(x))
+fig, ax = subplots(nrows=1,ncols=1,figsize=(20,12))
+figloss, axloss = subplots(nrows=1,ncols=1,figsize=(20,12));axloss.set_title("loss");
 
 for j=1:grad_iterations
 
@@ -246,14 +261,32 @@ for j=1:grad_iterations
         return fval
     end
 
-    α, fval = ls(ϕ, 1f0, fval, dot(gvec, p))
+    α, fval = ls(ϕ, 2f-1, fval, dot(gvec, p))
 
     println("Coupled inversion iteration no: ",j,"; function value: ",fval)
-    Grad_Loss[j] = fval
-    curr_loss = Grad_Loss[1:j]
-    # Update model and bound projection
+    hisloss[j] = fval
+
     @. x = x + α*p::AbstractArray{T}
-    JLD2.@save "result/SEGnocheckpointiter$(j)iter.jld2" x curr_loss α p
+    plot_velocity(decode(x), d; vmin=10f0, vmax=130f0, ax=ax, new_fig=false, name="inversion after $j iterations");
+    axloss.plot(hisloss[1:j])
+
+    fig.savefig("result/segperm$(j).png", bbox_inches="tight",dpi=300)
+    figloss.savefig("result/segloss$(j).png", bbox_inches="tight",dpi=300)
+
+    JLD2.@save "result/segiter$(j).jld2" x fval gvec hisloss
+
+    # Update model and bound projection
 end
 
-JLD2.@save "result/SEGnocheckpoint.jld2" Grad_Loss
+x_init = decode(x_normalizer,zeros(Float32, nx, ny, 1))[:,:,1]
+
+figure();
+subplot(1,3,1)
+imshow(x_init,vmin=20,vmax=120);title("initial permeability");
+subplot(1,3,2);
+imshow(x_inv,vmin=20,vmax=120);title("inversion by NN, $grad_iterations iter");
+subplot(1,3,3);
+imshow(x_test_1,vmin=20,vmax=120);title("GT permeability");
+
+figure();
+plot(Grad_Loss)
