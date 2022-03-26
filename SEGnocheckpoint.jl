@@ -2,7 +2,9 @@ using DrWatson
 @quickactivate "FNO"
 import Pkg; Pkg.instantiate()
 
+ENV["MPLBACKEND"]="agg"
 using PyPlot
+using SlimPlotting
 using BSON
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
