@@ -145,12 +145,12 @@ xrec = range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=nrec)
 yrec = 0f0
 zrec = range(d[2],stop=(n[2]-1)*d[2],length=nrec)
 
-srcGeometry_stack = [Geometry(xsrc, ysrc, zsrc[i]; dt=dtS, t=timeS) for i = 1:nv]
+srcGeometry_stack = [Geometry(xsrc, ysrc, zsrc_stack[i]; dt=dtS, t=timeS) for i = 1:nv]
 recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
 
 f0 = 0.02f0     # kHz
 wavelet = ricker_wavelet(timeS, dtS, f0)
-q = judiVector(srcGeometry, wavelet)
+q_stack = [judiVector(srcGeometry_stack[i], wavelet) for i = 1:nv]
 
 ntComp = get_computational_nt(srcGeometry_stack[end], recGeometry, model[end])
 info = Info(prod(n), nsrc, ntComp)
@@ -167,7 +167,7 @@ try
     println("found data, loading")
 catch e
     println("generating")
-    global d_obs = [F[i]*q for i = 1:nv]
+    global d_obs = [F[i]*q_stack[i] for i = 1:nv]
     JLD2.@save "data/data/time_lapse_data_$(nv)nv_$(nsrc)nsrc_jitter.jld2" d_obs
 end
 
@@ -237,7 +237,7 @@ for j=1:grad_iterations
 
     println("Iteration ", j)
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]
-    G_stack = [Forward(F[i][rand_ns[i]],q[rand_ns[i]]) for i = 1:nv]
+    G_stack = [Forward(F[i][rand_ns[i]],q_stack[i][rand_ns[i]]) for i = 1:nv]
     d_obs_sample = [sample_src(d_obs[i], nsrc, rand_ns[i]) for i = 1:nv]
 
     function f(x)
