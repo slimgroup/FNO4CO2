@@ -19,6 +19,7 @@ Base.broadcasted(::typeof(sqrt), a::Base.Broadcast.Broadcasted) = Base.broadcast
 
 include("utils.jl")
 include("fno3dstruct.jl")
+include("inversion_utils.jl");
 
 Random.seed!(3)
 
@@ -101,7 +102,7 @@ grad_iterations = 50
 nv = nt
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 
-λ = 1f0 # 2 norm regularization
+λ = 0f0 # 2 norm regularization
 
 #x = encode(x_normalizer,20f0*ones(Float32,nx,ny))[:,:,1]
 x = zeros(Float32, nx, ny)

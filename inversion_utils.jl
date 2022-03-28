@@ -57,3 +57,12 @@ function jitter(nsrc::Int, nssample::Int)
     npatch = Int(nsrc/nssample)
     return rand(1:npatch, nssample) .+ convert(Vector{Int},0:npatch:(nsrc-1))
 end
+
+function ContJitter(l::Number, num::Int)
+    #l = length, num = number of samples
+    interval_width = l/num
+    interval_center = range(interval_width/2, stop = l-interval_width/2, length=num)
+    randomshift = interval_width .* rand(Float32, num) .- interval_width/2
+
+    return interval_center .+ randomshift
+end
