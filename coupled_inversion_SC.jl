@@ -101,7 +101,7 @@ Flux.testmode!(NN.conv1.bn1);
 Flux.testmode!(NN.conv1.bn2);
 Flux.testmode!(NN.conv1.bn3);
 
-sw_true = y_test[:,:,survey_indices,5]
+sw_true = y_test[:,:,survey_indices,16]
 
 nx, ny = n
 dx, dy = d
@@ -173,8 +173,8 @@ end
 
 λ = 0f0 # 2 norm regularization
 
-x_true_code = x_test[:,:,1,1,5]
-x_true = decode(x_test[:,:,1,1,5])
+x_true_code = x_test[:,:,1,1,16]
+x_true = decode(x_test[:,:,1,1,16])
 mutable struct compgrid
     d :: Tuple
     n :: Tuple
