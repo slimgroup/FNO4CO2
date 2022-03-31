@@ -56,7 +56,7 @@ y_train_ = convert(Array{Float32},conc[1:st:end,1:s:end,1:s:end,1:ntrain]);
 y_test_ = convert(Array{Float32},conc[1:st:end,1:s:end,1:s:end,end-ntest+1:end]);
 
 nv = 11
-survey_indices = Int.(round.(range(1, stop=nv, length=nv)))
+survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 
 y_train_ = permutedims(y_train_,[2,3,1,4]);
 y_test = permutedims(y_test_,[2,3,1,4]);
