@@ -128,7 +128,7 @@ extentx = (n[1]-1)*d[1]
 extentz = (n[2]-1)*d[2]
 
 nsrc = 32
-nrec = Int(round((n[2]-1)*d[2]))
+nrec = 960
 
 model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]
 
@@ -137,15 +137,15 @@ dtS = dtR = 1f0
 ntS = Int(floor(timeS/dtS))+1
 ntR = Int(floor(timeR/dtR))+1
 
-xsrc = convertToCell(range(1*d[1],stop=1*d[1],length=nsrc))
+xsrc_stack = convertToCell(vcat(range(1*d[1],stop=1*d[1],length=Int(nsrc/2)),ContJitter((n[1]-1)*d[1], Int(nsrc/2))))
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
-zsrc_stack = [convertToCell(ContJitter((n[2]-1)*d[2], nsrc)) for i = 1:nv]
+zsrc_stack = [convertToCell(vcat(ContJitter((n[2]-1)*d[2], Int(nsrc/2)), range(10f0,stop=10f0,length=Int(nsrc/2)))) for i = 1:nv]
 
-xrec = range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=nrec)
+xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)), range(d[1], stop=(n[1]-1)*d[1], length=Int(nrec/2)))
 yrec = 0f0
-zrec = range(d[2],stop=(n[2]-1)*d[2],length=nrec)
+zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)), range(10f0, stop=10f0, length=Int(nrec/2)))
 
-srcGeometry_stack = [Geometry(xsrc, ysrc, zsrc_stack[i]; dt=dtS, t=timeS) for i = 1:nv]
+srcGeometry_stack = [Geometry(xsrc_stack[i], ysrc, zsrc_stack[i]; dt=dtS, t=timeS) for i = 1:nv]
 recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
 
 f0 = 0.02f0     # kHz
