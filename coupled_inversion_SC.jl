@@ -224,7 +224,7 @@ figprior, axprior = subplots(nrows=1,ncols=1,figsize=(20,12));axprior.set_title(
 hisloss = zeros(Float32, grad_iterations)
 hismisfit = zeros(Float32, grad_iterations)
 hisprior = zeros(Float32, grad_iterations)
-nssample = 4
+nssample = 8
 
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 fval = Inf32
