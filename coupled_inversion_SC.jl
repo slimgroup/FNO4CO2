@@ -137,7 +137,7 @@ dtS = dtR = 1f0
 ntS = Int(floor(timeS/dtS))+1
 ntR = Int(floor(timeR/dtR))+1
 
-xsrc_stack = convertToCell(vcat(range(1*d[1],stop=1*d[1],length=Int(nsrc/2)),ContJitter((n[1]-1)*d[1], Int(nsrc/2))))
+xsrc_stack = [convertToCell(vcat(range(1*d[1],stop=1*d[1],length=Int(nsrc/2)),ContJitter((n[1]-1)*d[1], Int(nsrc/2)))) for i = 1:nv]
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
 zsrc_stack = [convertToCell(vcat(ContJitter((n[2]-1)*d[2], Int(nsrc/2)), range(10f0,stop=10f0,length=Int(nsrc/2)))) for i = 1:nv]
 
