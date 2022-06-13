@@ -7,7 +7,7 @@ using DrWatson
 import Pkg; Pkg.instantiate()
 
 using PyPlot
-using Flux, Random, FFTW, Zygote, NNlib
+using Flux, Random, FFTW
 using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter
