@@ -78,12 +78,9 @@ x_valid_ = AN.forward(reshape(perm[1:s:end,1:s:end,ntrain+1:ntrain+nvalid], n[1]
 y_train = permutedims(conc[1:nt,1:s:end,1:s:end,1:ntrain],[2,3,1,4]);
 y_valid = permutedims(conc[1:nt,1:s:end,1:s:end,ntrain+1:ntrain+nvalid],[2,3,1,4]);
 
-x = reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)
-z = reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :)
-
 grid = zeros(Float32,n[1],n[2],2)
-grid[:,:,1] = repeat(x',n[2])'
-grid[:,:,2] = repeat(z,n[1])
+grid[:,:,1] = repeat(reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)',n[2])' # x
+grid[:,:,2] = repeat(reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :),n[1])   # z
 
 x_train = zeros(Float32,n[1],n[2],nt,4,ntrain);
 x_valid = zeros(Float32,n[1],n[2],nt,4,nvalid);
@@ -204,10 +201,10 @@ for ep = 1:epochs
 
     NN_save = NN |> cpu
     w_save = convert.(Array,w |> cpu)
-    save_dict = @strdict NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
+    param_dict = @strdict NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
     @tagsave(
-        datadir(sim_name, savename(save_dict, "jld2"; digits=6)),
-        save_dict;
+        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
+        param_dict;
         safe=true
     )
 end
