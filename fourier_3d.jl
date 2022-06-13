@@ -146,7 +146,7 @@ for ep = 1:epochs
         end
         global iter = iter + 1
         grads = gradient(w) do
-            global loss = Flux.mse(relu01(NN(x)),y)
+            global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
         end
         Loss[iter] = loss
@@ -187,7 +187,9 @@ for ep = 1:epochs
     fig = figure(figsize=(20, 12))
     plot(Loss[1:nbatches*ep]);
     plot(1:nbatches:nbatches*ep, Loss_valid[1:ep]); 
-    title("Objective function at epoch " + ep)
+    xlabel("iterations")
+    ylabel("value")
+    title("Objective function at epoch $ep")
     legend(["training", "validation"])
     tight_layout();
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
