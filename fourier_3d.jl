@@ -22,8 +22,6 @@ catch e
     global gpu_flag=false
 end
 
-gpu_flag = false
-
 include("utils.jl")
 include("fno3dstruct.jl")
 
@@ -32,7 +30,7 @@ Random.seed!(1234)
 ntrain = 1000
 nvalid = 100
 
-batch_size = 10
+batch_size = 1
 learning_rate = 1f-4
 
 epochs = 200
