@@ -7,13 +7,13 @@ using DrWatson
 import Pkg; Pkg.instantiate()
 
 using PyPlot
-using BSON
 using Flux, Random, FFTW, Zygote, NNlib
 using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter
 using InvertibleNetworks:ActNorm
-matplotlib.use("tkagg")
+matplotlib.use("Agg")
+
 try
     CUDA.device()
     global gpu_flag=true
