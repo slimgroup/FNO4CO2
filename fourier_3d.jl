@@ -13,7 +13,7 @@ using MAT, Statistics, LinearAlgebra
 using CUDA
 using ProgressMeter
 using InvertibleNetworks:ActNorm
-
+matplotlib.use("tkagg")
 try
     CUDA.device()
     global gpu_flag=true
@@ -158,7 +158,7 @@ for ep = 1:epochs
         for p in w
             Flux.Optimise.update!(opt, p, grads[p])
         end
-        ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep)])
+        ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
     valid_idx = randperm(nvalid)[1:batch_size]
