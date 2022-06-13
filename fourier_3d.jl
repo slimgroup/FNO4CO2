@@ -174,7 +174,7 @@ for ep = 1:epochs
         imshow(y_predict[:,:,10*i+1,1]', vmin=0, vmax=1)
         title("predict y")
 
-        subplot(4,5,i+10)
+        subplot(4,5,i+15)
         imshow(5f0 .* abs.(y_plot[:,:,10*i+1,1]'-y_predict[:,:,10*i+1,1]'), vmin=0, vmax=1)
         title("5X abs difference")
 
