@@ -156,13 +156,9 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
-    valid_idx = randperm(nvalid)[1:batch_size]
-    x_v = x_valid[:, :, :, :, valid_idx]
-    y_v = y_valid[:, :, :, valid_idx]
-    y_predict = relu01(NN(x_v))
-    Loss_valid[ep] = Flux.mse(y_predict, y_v)
+    y_predict = relu01(NN(x_plot |> gpu))   |> cpu
+    Loss_valid[ep] = Flux.mse(y_predict, y_plot)
 
-    y_predict = relu01(NN(x_plot))
     fig = figure(figsize=(20, 12))
 
     for i = 1:5
