@@ -7,6 +7,7 @@ using DrWatson
 import Pkg; Pkg.instantiate()
 
 using PyPlot
+using JLD2
 using Flux, Random, FFTW
 using MAT, Statistics, LinearAlgebra
 using CUDA
@@ -156,6 +157,16 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
+    NN_save = NN |> cpu
+    w_save = convert.(Array,w |> cpu)
+
+    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
+    @tagsave(
+        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
+        param_dict;
+        safe=true
+    )
+
     y_predict = relu01(NN(x_plot |> gpu))   |> cpu
     Loss_valid[ep] = Flux.mse(y_predict, y_plot)
 
@@ -180,7 +191,7 @@ for ep = 1:epochs
 
     end
     tight_layout()
-    fig_name = @strdict ep NN w batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
+    fig_name = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
     close(fig)
 
@@ -195,12 +206,4 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
     close(fig);
 
-    NN_save = NN |> cpu
-    w_save = convert.(Array,w |> cpu)
-    param_dict = @strdict NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
-    @tagsave(
-        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
-        param_dict;
-        safe=true
-    )
 end
