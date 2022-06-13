@@ -195,7 +195,7 @@ for ep = 1:epochs
 
     fig = figure(figsize=(20, 12))
     plot(Loss[1:nbatches*ep]);
-    plot(1:nbatches:nbatches*ep, Loss_valid); 
+    plot(1:nbatches:nbatches*ep, Loss_valid[1:ep]); 
     title("Objective function at epoch " + ep)
     legend(["training", "validation"])
     tight_layout();
