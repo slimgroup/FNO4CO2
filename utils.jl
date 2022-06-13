@@ -93,3 +93,5 @@ function setMeanStd(x_normalizer)
     mean_ = x_normalizer.mean_[:,:,1]
     return std_, eps_, mean_
 end
+
+relu01(x::AbstractArray{Float32}) = 1f0.-relu.(1f0.-relu.(x))
