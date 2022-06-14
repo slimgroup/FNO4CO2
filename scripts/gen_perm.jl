@@ -2,7 +2,7 @@
 ## Author: Ziyi Yin, ziyi.yin@gatech.edu
 
 using DrWatson
-@quickactivate "FNO"
+@quickactivate "FNO4CO2"
 
 using PyPlot
 using Random, MAT, Images, JLD2
@@ -69,9 +69,9 @@ end
 suptitle("millidarcy -- samples")
 
 # Define raw data directory
-mkpath(datadir())
-perm_path = datadir("perm_gridspacing15.0.mat")
-conc_path = datadir("conc_gridspacing15.0.mat")
+mkpath(datadir("training-data"))
+perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
+conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
 
 matwrite(perm_path, Dict(
 	"perm" => perm,

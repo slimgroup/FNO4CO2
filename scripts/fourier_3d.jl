@@ -1,10 +1,11 @@
-# author: Ziyi (Francis) Yin
+# author: Ziyi Yin, ziyi.yin@gatech.edu
 # This script trains a Fourier Neural Operator which maps 2D permeability distribution to time-varying CO2 concentration snapshots.
 # The PDE is in 2D while FNO requires 3D FFT
 
 using DrWatson
-@quickactivate "FNO"
+@quickactivate "FNO4CO2"
 
+using FNO4CO2
 using PyPlot
 using JLD2
 using Flux, Random, FFTW
@@ -22,9 +23,6 @@ catch e
     global gpu_flag=false
 end
 
-include("utils.jl")
-include("fno3dstruct.jl")
-
 Random.seed!(1234)
 
 ntrain = 1000
@@ -34,8 +32,6 @@ batch_size = 1
 learning_rate = 1f-4
 
 epochs = 200
-step_size = 100
-gamma = 5f-1
 
 modes = 4
 width = 20
@@ -51,9 +47,9 @@ nt = 51
 dt = 1f0/(nt-1)
 
 # Define raw data directory
-mkpath(datadir())
-perm_path = datadir("perm_gridspacing15.0.mat")
-conc_path = datadir("conc_gridspacing15.0.mat")
+mkpath(datadir("training-data"))
+perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
+conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
 
 # Download the dataset into the data directory if it does not exist
 if ~isfile(perm_path)
@@ -69,40 +65,17 @@ perm = matread(perm_path)["perm"];
 conc = matread(conc_path)["conc"];
 
 AN = ActNorm(ntrain)
-
-x_train_ = AN.forward(reshape(perm[1:s:end,1:s:end,1:ntrain], n[1], n[2], 1, ntrain))
-x_valid_ = AN.forward(reshape(perm[1:s:end,1:s:end,ntrain+1:ntrain+nvalid], n[1], n[2], 1, nvalid))
+AN.forward(reshape(perm[1:s:end,1:s:end,1:ntrain], n[1], n[2], 1, ntrain));
 
 y_train = permutedims(conc[1:nt,1:s:end,1:s:end,1:ntrain],[2,3,1,4]);
 y_valid = permutedims(conc[1:nt,1:s:end,1:s:end,ntrain+1:ntrain+nvalid],[2,3,1,4]);
 
-grid = zeros(Float32,n[1],n[2],2)
-grid[:,:,1] = repeat(reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)',n[2])' # x
-grid[:,:,2] = repeat(reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :),n[1])   # z
+grid = gen_grid(n, d, nt, dt)
 
-x_train = zeros(Float32,n[1],n[2],nt,4,ntrain);
-x_valid = zeros(Float32,n[1],n[2],nt,4,nvalid);
-
-for i = 1:nt
-    x_train[:,:,i,1,:] = deepcopy(x_train_)
-    x_valid[:,:,i,1,:] = deepcopy(x_valid_)
-    for j = 1:ntrain
-        x_train[:,:,i,2,j] = grid[:,:,1]
-        x_train[:,:,i,3,j] = grid[:,:,2]
-        x_train[:,:,i,4,j] .= (i-1)*dt
-    end
-
-    for k = 1:nvalid
-        x_valid[:,:,i,2,k] = grid[:,:,1]
-        x_valid[:,:,i,3,k] = grid[:,:,2]
-        x_valid[:,:,i,4,k] .= (i-1)*dt
-    end
-end
+x_train = perm_to_tensor(perm[1:s:end,1:s:end,1:ntrain],grid,AN);
+x_valid = perm_to_tensor(perm[1:s:end,1:s:end,ntrain+1:ntrain+nvalid],grid,AN);
 
 # value, x, y, t
-
-train_loader = Flux.Data.DataLoader((x_train, y_train); batchsize = batch_size, shuffle = true)
-valid_loader = Flux.Data.DataLoader((x_valid, y_valid); batchsize = batch_size, shuffle = true)
 
 NN = Net3d(modes, width)
 gpu_flag && (global NN = NN |> gpu)
@@ -131,12 +104,12 @@ plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
 ## training
 
-iter = 0
 for ep = 1:epochs
 
     Base.flush(Base.stdout)
     idx_e = reshape(randperm(ntrain), batch_size, nbatches)
 
+    Flux.trainmode!(NN, true)
     for b = 1:nbatches
         x = x_train[:, :, :, :, idx_e[:,b]]
         y = y_train[:, :, :, idx_e[:,b]]
@@ -144,30 +117,20 @@ for ep = 1:epochs
             x = x |> gpu
             y = y |> gpu
         end
-        global iter = iter + 1
         grads = gradient(w) do
             global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
         end
-        Loss[iter] = loss
+        Loss[(ep-1)*nbatches+b] = loss
         for p in w
             Flux.Optimise.update!(opt, p, grads[p])
         end
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
-    NN_save = NN |> cpu
-    w_save = convert.(Array,w |> cpu)
-
-    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
-    @tagsave(
-        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
-        param_dict;
-        safe=true
-    )
+    Flux.testmode!(NN, true)
 
     y_predict = relu01(NN(x_plot |> gpu))   |> cpu
-    Loss_valid[ep] = Flux.mse(y_predict, y_plot)
 
     fig = figure(figsize=(20, 12))
 
@@ -190,13 +153,25 @@ for ep = 1:epochs
 
     end
     tight_layout()
-    fig_name = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs gamma step_size s n d nt dt AN
+    fig_name = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
     close(fig)
 
+    valid_idx = randperm(nvalid)[1:batch_size]
+    Loss_valid[ep] = norm(relu01(NN(x_valid[:, :, :, :, valid_idx])) , y_valid[:, :, :, valid_idx])/norm(y_valid[:, :, :, valid_idx])
+
+    loss_train = Loss[1:ep*nbatches]
+    loss_valid = Loss_valid[1:ep]
     fig = figure(figsize=(20, 12))
-    plot(Loss[1:nbatches*ep]);
-    plot(1:nbatches:nbatches*ep, Loss_valid[1:ep]); 
+    subplot(1,3,1)
+    plot(loss_train)
+    title("training loss at epoch $ep")
+    subplot(1,3,2)
+    plot(1:nbatches:nbatches*ep, loss_valid); 
+    title("validation loss at epoch $ep")
+    subplot(1,3,3)
+    plot(loss_train);
+    plot(1:nbatches:nbatches*ep, loss_valid); 
     xlabel("iterations")
     ylabel("value")
     title("Objective function at epoch $ep")
@@ -205,4 +180,25 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
     close(fig);
 
+    NN_save = NN |> cpu
+    w_save = params(NN_save)    
+
+    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid
+    @tagsave(
+        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
+        param_dict;
+        safe=true
+    )
+    
 end
+
+NN_save = NN |> cpu
+w_save = params(NN_save)
+
+final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid
+
+@tagsave(
+    datadir(sim_name, savename(final_dict, "jld2"; digits=6)),
+    final_dict;
+    safe=true
+)

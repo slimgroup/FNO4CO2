@@ -1,3 +1,5 @@
+export Net3d
+
 mutable struct SpectralConv3d_fast{T,N}
     weights1::AbstractArray{T,N}
     weights2::AbstractArray{T,N}
