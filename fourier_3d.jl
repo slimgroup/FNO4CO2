@@ -4,7 +4,6 @@
 
 using DrWatson
 @quickactivate "FNO"
-import Pkg; Pkg.instantiate()
 
 using PyPlot
 using JLD2
@@ -52,9 +51,9 @@ nt = 51
 dt = 1f0/(nt-1)
 
 # Define raw data directory
-mkpath(datadir("data"))
-perm_path = datadir("data", "perm_gridspacing15.0.mat")
-conc_path = datadir("data", "conc_gridspacing15.0.mat")
+mkpath(datadir())
+perm_path = datadir("perm_gridspacing15.0.mat")
+conc_path = datadir("conc_gridspacing15.0.mat")
 
 # Download the dataset into the data directory if it does not exist
 if ~isfile(perm_path)
