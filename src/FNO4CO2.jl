@@ -8,6 +8,7 @@ using DrWatson
 using Flux
 using FFTW
 using InvertibleNetworks:ActNorm
+using CUDA
 
 try
     CUDA.device()
