@@ -158,7 +158,7 @@ for ep = 1:epochs
     close(fig)
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = norm(relu01(NN(x_valid[:, :, :, :, valid_idx])) , y_valid[:, :, :, valid_idx])/norm(y_valid[:, :, :, valid_idx])
+    Loss_valid[ep] = norm(relu01(NN(x_valid[:, :, :, :, valid_idx] |> gpu)) - (y_valid[:, :, :, valid_idx] |> gpu))/norm(y_valid[:, :, :, valid_idx])
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
