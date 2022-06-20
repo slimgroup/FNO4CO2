@@ -1206,7 +1206,7 @@ version = "0.7.7"
 
 [[deps.Seis4CCS]]
 deps = ["FwiFlow", "LinearAlgebra", "Polynomials", "Statistics"]
-git-tree-sha1 = "bb47c30c5dd1f7c08698fa7b3b94f9b4c12eac4d"
+git-tree-sha1 = "a5e1a3f62e043472e636bda4692f9351f7c06cc6"
 repo-rev = "main"
 repo-url = "https://github.com/slimgroup/Seis4CCS.jl.git"
 uuid = "808f26ee-2243-4b28-9f59-2530de529097"

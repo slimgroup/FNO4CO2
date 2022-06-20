@@ -60,10 +60,25 @@ for i = 1:num_sample
     perm[:,:,i] = deepcopy(perm_)
 end
 
+perm_ext = zeros(Float32, n[1], n[2], num_sample);
+for i = 1:num_sample
+    perm_ext[:,:,i] = Float32.(imfilter(perm[:,:,i],Kernel.gaussian(3f0*rand()+1f0)))
+end
+
+perm = cat(perm, perm_ext, dims=3)
+
 figure(figsize=(12,12));
 for i = 1:9
     subplot(3,3,i)
     imshow(perm[:,:,i]',vmin=20,vmax=120)
+    colorbar()
+end
+suptitle("millidarcy -- samples")
+
+figure(figsize=(12,12));
+for i = 1:9
+    subplot(3,3,i)
+    imshow(perm[:,:,end-i]',vmin=20,vmax=120)
     colorbar()
 end
 suptitle("millidarcy -- samples")

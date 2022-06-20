@@ -120,37 +120,17 @@ end
 function perm_to_tensor(x_perm::AbstractMatrix{Float32},grid::Array{Float32,4},AN::ActNorm)
     # input nx*ny, output nx*ny*nt*4*1
     nx, ny, nt, _ = size(grid)
-    output = zeros(Float32,nx,ny,nt,4,1)
-    @views copyto!(output[:,:,:,2:4,1],grid)
-    for i = 1:nt
-        @views copyto!(output[:,:,i,1,1], AN(reshape(x_perm, nx, ny, 1, 1))[:,:,1,1])
-    end
-    return output
+    return cat(reshape(cat([AN(reshape(x_perm, nx, ny, 1, 1))[:,:,1,1] for i = 1:nt]..., dims=3), nx, ny, nt, 1, 1),
+    reshape(grid, nx, ny, nt, 3, 1), dims=4)
 end
 
 function perm_to_tensor(x_perm::AbstractMatrix{Float32},grid::Array{Float32,4})
     # input nx*ny, output nx*ny*nt*4*1
     nx, ny, nt, _ = size(grid)
-    output = zeros(Float32,nx,ny,nt,4,1)
-    @views copyto!(output[:,:,:,2:4,1],grid)
-    for i = 1:nt
-        @views copyto!(output[:,:,i,1,1], x_perm)
-    end
-    return output
+    return cat(reshape(cat([reshape(x_perm, nx, ny, 1, 1)[:,:,1,1] for i = 1:nt]..., dims=3), nx, ny, nt, 1, 1),
+    reshape(grid, nx, ny, nt, 3, 1), dims=4)
 end
 
-function perm_to_tensor(x_perm::AbstractArray{Float32,3},grid::Array{Float32,4},AN::ActNorm)
-    output = zeros(Float32,size(x_perm,1),size(x_perm,2),size(grid,3),4,size(x_perm,3));
-    for i = 1:size(x_perm,3)
-        @views copyto!(output[:,:,:,:,i], perm_to_tensor(x_perm[:,:,i],grid,AN))
-    end
-    return output
-end
+perm_to_tensor(x_perm::AbstractArray{Float32,3},grid::Array{Float32,4},AN::ActNorm) = cat([perm_to_tensor(x_perm[:,:,i],grid,AN) for i = 1:size(x_perm,3)]..., dims=5)
 
-function perm_to_tensor(x_perm::AbstractArray{Float32,3},grid::Array{Float32,4})
-    output = zeros(Float32,size(x_perm,1),size(x_perm,2),size(grid,3),4,size(x_perm,3));
-    for i = 1:size(x_perm,3)
-        @views copyto!(output[:,:,:,:,i], perm_to_tensor(x_perm[:,:,i],grid))
-    end
-    return output
-end
+perm_to_tensor(x_perm::AbstractArray{Float32,3},grid::Array{Float32,4}) = cat([perm_to_tensor(x_perm[:,:,i],grid) for i = 1:size(x_perm,3)]..., dims=5)

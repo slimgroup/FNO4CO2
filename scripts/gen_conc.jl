@@ -21,8 +21,14 @@ qw[:,3,32] .= 0.005
 qo = zeros(nt, n[1], n[2])
 qo[:,62,32] .= -0.005
 
-nsamples = 1200
-perm = matread("perm_gridspacing$(d[1]).mat")["perm"];
+# Define raw data directory
+mkpath(datadir("training-data"))
+perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
+conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
+
+perm = matread(perm_path)["perm"];
+
+nsamples = size(perm, 3)
 conc = zeros(Float32,nt+1,n[1],n[2],nsamples);
 
 for i = 1:nsamples
