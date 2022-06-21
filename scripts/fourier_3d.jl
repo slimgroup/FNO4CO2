@@ -25,10 +25,35 @@ end
 
 Random.seed!(1234)
 
-ntrain = 1000
-nvalid = 100
+# Define raw data directory
+mkpath(datadir("training-data"))
+perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
+conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
 
-batch_size = 1
+# Download the dataset into the data directory if it does not exist
+if ~isfile(perm_path)
+    run(`wget https://www.dropbox.com/s/o35wvnlnkca9r8k/'
+        'perm_gridspacing15.0.mat -q -O $perm_path`)
+end
+if ~isfile(conc_path)
+    run(`wget https://www.dropbox.com/s/mzi0xgr0z3l553a/'
+        'conc_gridspacing15.0.mat -q -O $conc_path`)
+end
+
+perm = matread(perm_path)["perm"];
+conc = matread(conc_path)["conc"];
+
+## shuffle the dataset
+nsamples = size(perm, 3)
+shuffle = randperm(nsamples)
+
+perm = perm[:,:,shuffle];
+conc = conc[:,:,:,shuffle];
+
+ntrain = Int(round(0.8 * nsamples))
+nvalid = Int(round(0.1 * nsamples))
+
+batch_size = 2
 learning_rate = 1f-4
 
 epochs = 200
@@ -45,24 +70,6 @@ s = 1
 nt = 51
 #dt = 20f0    # dt in day
 dt = 1f0/(nt-1)
-
-# Define raw data directory
-mkpath(datadir("training-data"))
-perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
-conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
-
-# Download the dataset into the data directory if it does not exist
-if ~isfile(perm_path)
-    run(`wget https://www.dropbox.com/s/eqre95eqggqkdq2/'
-        'perm_gridspacing15.0.mat -q -O $perm_path`)
-end
-if ~isfile(conc_path)
-    run(`wget https://www.dropbox.com/s/b5zkp6cw60bd4lt/'
-        'conc_gridspacing15.0.mat -q -O $conc_path`)
-end
-
-perm = matread(perm_path)["perm"];
-conc = matread(conc_path)["conc"];
 
 AN = ActNorm(ntrain)
 AN.forward(reshape(perm[1:s:end,1:s:end,1:ntrain], n[1], n[2], 1, ntrain));
@@ -97,7 +104,7 @@ y_plot = y_valid[:, :, :, 1:1]
 # Define result directory
 
 sim_name = "3D_FNO"
-exp_name = "2phaseflow"
+exp_name = "2phaseflow_extenddataset"
 
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
@@ -183,7 +190,7 @@ for ep = 1:epochs
     NN_save = NN |> cpu
     w_save = params(NN_save)    
 
-    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid
+    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid shuffle
     @tagsave(
         datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
         param_dict;
@@ -195,7 +202,7 @@ end
 NN_save = NN |> cpu
 w_save = params(NN_save)
 
-final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid
+final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid shuffle
 
 @tagsave(
     datadir(sim_name, savename(final_dict, "jld2"; digits=6)),
