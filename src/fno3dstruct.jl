@@ -1,3 +1,5 @@
+export Net3d
+
 mutable struct SpectralConv3d_fast{T,N}
     weights1::AbstractArray{T,N}
     weights2::AbstractArray{T,N}
@@ -16,15 +18,15 @@ function SpectralConv3d_fast(in_channels::Integer, out_channels::Integer, modes1
         weights3 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
         weights4 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels) |> gpu
     else
-        weights1 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-        weights2 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-        weights3 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
-        weights4 = scale*rand(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+        weights1 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+        weights2 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+        weights3 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
+        weights4 = scale*randn(Complex{Float32}, modes1, modes2, modes3, in_channels, out_channels)
     end
     return SpectralConv3d_fast{Complex{Float32}, 5}(weights1, weights2, weights3, weights4)
 end
 
-function compl_mul3d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Complex{Float32}})
+function compl_mul3d(x::AbstractArray{Complex{Float32}, 5}, y::AbstractArray{Complex{Float32}, 5})
     # complex multiplication
     # x in (modes1, modes2, modes3, input channels, batchsize)
     # y in (modes1, modes2, modes3, input channels, output channels)
@@ -39,7 +41,7 @@ function compl_mul3d(x::AbstractArray{Complex{Float32}}, y::AbstractArray{Comple
     return out
 end
 
-function (L::SpectralConv3d_fast)(x::AbstractArray{Float32})
+function (L::SpectralConv3d_fast)(x::AbstractArray{Float32, 5})
     # x in (size_x, size_y, time, channels, batchsize)
     x_ft = rfft(x,[1,2,3])      ## full size FFT
     modes1 = size(L.weights1,1)
@@ -99,7 +101,7 @@ function SimpleBlock3d(modes1::Integer, modes2::Integer, modes3::Integer, width:
     return block
 end
 
-function (B::SimpleBlock3d)(x::AbstractArray{Float32})
+function (B::SimpleBlock3d)(x::AbstractArray{Float32, 5})
     x = B.fc0(x)
     x1 = B.conv0(x)
     x2 = B.w0(x)
@@ -132,7 +134,7 @@ function Net3d(modes::Integer, width::Integer)
     return Net3d(SimpleBlock3d(modes,modes,modes,width))
 end
 
-function (NN::Net3d)(x::AbstractArray{Float32})
+function (NN::Net3d)(x::AbstractArray{Float32, 5})
     x = NN.conv1(x)
     x = dropdims(x,dims=4)
 end
