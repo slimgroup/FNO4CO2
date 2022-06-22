@@ -120,15 +120,3 @@ function SetPrj()
     return prj
     
 end
-
-function S(x::AbstractMatrix{Float32})
-    return decode(y_normalizer,NN(perm_to_tensor(x,nt,grid,dt)))[:,:,survey_indices,1]
-end
-
-function R(c::AbstractArray{Float32,3})
-    return [(Patchy(c[:,:,i]',vp,vs,rho,phi))[1] for i = 1:nv]
-end
-
-function (F::Array{Forward{judiPDEfull{Float32,Float32}},1})(v::Vector{Matrix{Float32}})
-    return [F[i]((1f3 ./ v[i]).^2f0) for i = 1:nv]
-end
