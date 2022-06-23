@@ -11,6 +11,7 @@ using InvertibleNetworks:ActNorm
 using CUDA
 
 try
+    @assert ENV["FNO4CO2GPU"] == "1"
     CUDA.device()
     global gpu_flag=true
 catch e

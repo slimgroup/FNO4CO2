@@ -216,7 +216,7 @@ for iter=1:grad_iterations
 
     ### wave physics
     function F(v::Vector{Matrix{Float32}})
-        m = [reshape((1f3./v[i]).^2f0, prod(n), 1) for i = 1:nv]
+        m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
         return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
     end
 
