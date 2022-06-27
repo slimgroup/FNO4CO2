@@ -18,15 +18,10 @@ Random.seed!(3)
 proj = false
 
 # load the network
-JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2"
+JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
 
-NN = deepcopy(NN_save)
-Flux.testmode!(NN, true)
-n = (64,64) # spatial dimension
-d = 1f0./n  # normalized spacing
-
-nt = 51     # num of time steps
-dt = 1f0/(nt-1) # normalized time stepping
+NN = deepcopy(NN_save);
+Flux.testmode!(NN, true);
 
 # Define raw data directory
 mkpath(datadir("training-data"))

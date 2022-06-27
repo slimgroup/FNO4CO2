@@ -16,14 +16,8 @@ Random.seed!(3)
 proj = false
 
 # load the network
-JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=100_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2"
-
-NN = deepcopy(NN_save)
-n = (64,64) # spatial dimension
-d = 1f0./n  # normalized spacing
-
-nt = 51     # num of time steps
-dt = 1f0/(nt-1) # normalized time stepping
+JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
+NN = deepcopy(NN_save);
 
 # Define raw data directory
 mkpath(datadir("training-data"))
@@ -56,7 +50,9 @@ survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 yobs = permutedims(y_true[survey_indices,:,:,1:1],[2,3,1,4]); # ground truth CO2 concentration at these vintages
 
 # initial x
-x = mean(perm[:,:,1:ntrain], dims=3)[:,:,1];
+x = 20f0 * ones(Float32, n);
+x[:,25:36] .= 120f0;
+x_init = deepcopy(x);
 
 Flux.testmode!(NN, true)
 @time y_predict = relu01(NN(perm_to_tensor(x, grid, AN)));
@@ -124,7 +120,7 @@ else
 end
 
 # set up plots
-niterations = 25
+niterations = 50
 _, ax = subplots(nrows=1, ncols=1, figsize=(20,12))
 _, axloss = subplots(nrows=1, ncols=1, figsize=(20,12))
 hisloss = zeros(Float32, niterations+1)
@@ -158,13 +154,15 @@ for j=1:niterations
         global step, fval = ls(ϕ, α, loss, dot(g, gnorm))
     catch e
         println("linesearch failed at iteration: ",j)
+        global niterations = j
+        hisloss[j+1] = loss
         break
     end
     global α = 1.2f0 * step
     hisloss[j+1] = fval
 
     # Update model and bound projection
-    global x .= prj(Float32.(x .+ step .* gnorm))
+    global x .= prj(x .+ step .* gnorm)
 
     axloss.plot(hisloss[1:j+1])
     ax.imshow(x', vmin=20, vmax=120)
@@ -173,14 +171,21 @@ for j=1:niterations
 
 end
 
+y_predict = S(x);
+
 ## compute true and plot
+SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
 fig = figure(figsize=(20,12));
-subplot(1,3,1)
-imshow(mean(perm[:,:,1:ntrain], dims=3)[:,:,1]',vmin=20,vmax=120);title("initial permeability");
-subplot(1,3,2);
-imshow(x',vmin=20,vmax=120);title("inversion by NN, $(niterations) iter");
-subplot(1,3,3);
-imshow(x_true',vmin=20,vmax=120);title("GT permeability");
+subplot(2,2,1);
+imshow(x',vmin=20,vmax=120);title("inversion by NN, $(niterations) iter");colorbar();
+subplot(2,2,2);
+imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
+subplot(2,2,3);
+imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
+subplot(2,2,4);
+imshow(5*(x_true'-x'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
+suptitle("MLE (no prior)")
+tight_layout()
 
 sim_name = "FNOinversion"
 exp_name = "2phaseflow"
@@ -190,3 +195,13 @@ plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
 fig_name = @strdict proj nv niterations 
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
+
+
+## loss
+fig = figure(figsize=(20,12));
+plot(hisloss[1:niterations+1]);title("loss");
+suptitle("MLE (no prior)")
+tight_layout()
+
+safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
+
