@@ -121,8 +121,7 @@ end
 
 # set up plots
 niterations = 50
-_, ax = subplots(nrows=1, ncols=1, figsize=(20,12))
-_, axloss = subplots(nrows=1, ncols=1, figsize=(20,12))
+
 hisloss = zeros(Float32, niterations+1)
 ls = BackTracking(order=3, iterations=10)
 α = 1f1
@@ -164,9 +163,6 @@ for j=1:niterations
     # Update model and bound projection
     global x .= prj(x .+ step .* gnorm)
 
-    axloss.plot(hisloss[1:j+1])
-    ax.imshow(x', vmin=20, vmax=120)
-
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, j), (:steplength, step)])
 
 end
@@ -194,7 +190,7 @@ save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
 fig_name = @strdict proj nv niterations 
-safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
+safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_inv.png"), fig);
 
 
 ## loss
@@ -204,4 +200,22 @@ suptitle("MLE (no prior)")
 tight_layout()
 
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
+
+## data fitting
+fig = figure(figsize=(20,12));
+for i = 1:5
+    subplot(3,5,i);
+    imshow(yobs[:,:,10*i+1]', vmin=0, vmax=1);
+    title("true at snapshot $(10*i+1)")
+    subplot(3,5,i+5);
+    imshow(y_predict[:,:,10*i+1]', vmin=0, vmax=1);
+    title("predict at snapshot $(10*i+1)")
+    subplot(3,5,i+10);
+    imshow(5*abs.(yobs[:,:,10*i+1]'-y_predict[:,:,10*i+1]'), vmin=0, vmax=1);
+    title("5X diff at snapshot $(10*i+1)")
+end
+suptitle("MLE (no prior)")
+tight_layout()
+safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
+
 
