@@ -130,9 +130,9 @@ version = "0.2.2"
 
 [[deps.ChainRules]]
 deps = ["ChainRulesCore", "Compat", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "Statistics"]
-git-tree-sha1 = "97fd0a3b7703948a847265156a41079730805c77"
+git-tree-sha1 = "238f4cb4d7d58ad876d51bae45922b3fb7db29ad"
 uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.36.0"
+version = "1.36.1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -657,9 +657,9 @@ version = "0.21.3"
 
 [[deps.JUDI]]
 deps = ["ChainRulesCore", "DSP", "Dierckx", "Distributed", "FFTW", "JOLI", "LinearAlgebra", "PyCall", "Random", "Reexport", "SegyIO"]
-git-tree-sha1 = "92237cbb6f141b0524a1c801a98e373aaf6b4011"
+git-tree-sha1 = "e624fc592efe195359b19e03f4c0ee9285746913"
 uuid = "f3b833dc-6b2e-5b9c-b940-873ed6319979"
-version = "3.1.2"
+version = "3.1.3"
 
 [[deps.JpegTurbo]]
 deps = ["CEnum", "FileIO", "ImageCore", "JpegTurbo_jll", "TOML"]
@@ -916,9 +916,9 @@ version = "1.4.1"
 
 [[deps.PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "7f4869861f8dac4990d6808b66b57e5a425cfd99"
+git-tree-sha1 = "ca433b9e2f5ca3a0ce6702a032fce95a3b6e1e48"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.13"
+version = "0.11.14"
 
 [[deps.PNGFiles]]
 deps = ["Base64", "CEnum", "ImageCore", "IndirectArrays", "OffsetArrays", "libpng_jll"]
@@ -968,9 +968,9 @@ version = "1.3.0"
 
 [[deps.Primes]]
 deps = ["IntegerMathUtils"]
-git-tree-sha1 = "747f4261ebe38a2bc6abf0850ea8c6d9027ccd07"
+git-tree-sha1 = "311a2aa90a64076ea0fac2ad7492e914e6feeb81"
 uuid = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
-version = "0.5.2"
+version = "0.5.3"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -1119,6 +1119,12 @@ version = "0.1.0"
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
+[[deps.SetIntersectionProjection]]
+deps = ["Distributed", "DistributedArrays", "Interpolations", "JOLI", "LinearAlgebra", "Parameters", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "Test", "TimerOutputs"]
+git-tree-sha1 = "e6ac290d9a448a9d309af4b02ecf8ba2e0dfc944"
+uuid = "335f7d24-6316-57dd-9c3a-df470f2b739e"
+version = "0.2.3"
+
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
@@ -1181,10 +1187,15 @@ uuid = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 version = "0.4.1"
 
 [[deps.StaticArrays]]
-deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "2bbd9f2e40afd197a1379aef05e0d85dba649951"
+deps = ["LinearAlgebra", "Random", "StaticArraysCore", "Statistics"]
+git-tree-sha1 = "9f8a5dc5944dc7fbbe6eb4180660935653b0a9d9"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.7"
+version = "1.5.0"
+
+[[deps.StaticArraysCore]]
+git-tree-sha1 = "66fe9eb253f910fe8cf161953880cfdaef01cdf0"
+uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
+version = "1.0.1"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1198,9 +1209,9 @@ version = "1.4.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "642f08bf9ff9e39ccc7b710b2eb9a24971b52b1a"
+git-tree-sha1 = "48598584bacbebf7d30e20880438ed1d24b7c7d6"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.17"
+version = "0.33.18"
 
 [[deps.StatsFuns]]
 deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]

@@ -90,3 +90,8 @@ param_dict = @strdict num_sample n d theta0 delta cons perm
     param_dict;
     safe = true
 )
+
+perm = perm[:,:,1:1200]
+matwrite(perm_path, Dict(
+	"perm" => perm,
+); compress = true)

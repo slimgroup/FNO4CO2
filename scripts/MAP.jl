@@ -28,7 +28,8 @@ for j=1:length(P_curr)
     P_curr[j].data = Params[j].data;
 end
 
-G(zeros(Float32,n[1],n[2],1,1));        # forward to set up splitting
+# forward to set up splitting, take the reverse for Asim formulation
+G(zeros(Float32,n[1],n[2],1,1));
 G1 = InvertNetRev(G);
 
 # Define raw data directory
@@ -64,8 +65,8 @@ yobs = permutedims(y_true[survey_indices,:,:,1:1],[2,3,1,4]); # ground truth CO2
 # initial z
 x_init = 20f0 * ones(Float32, n);
 x_init[:,25:36] .= 120f0;
-z = G(reshape(x_init, n[1], n[2], 1, 1));
-@time y_predict = relu01(NN(perm_to_tensor(G1(z)[:,:,1,1], grid, AN)));
+z = vec(G(reshape(x_init, n[1], n[2], 1, 1)));
+@time y_init = relu01(NN(perm_to_tensor(G1(z)[:,:,1,1], grid, AN)));
 
 ## weighting
 λ = 1f0;
@@ -83,12 +84,12 @@ end
 
 # set up plots
 niterations = 50
-_, ax = subplots(nrows=1, ncols=1, figsize=(20,12))
+
 hisloss = zeros(Float32, niterations+1)
 hismisfit = zeros(Float32, niterations+1)
 hisprior = zeros(Float32, niterations+1)
-ls = BackTracking(order=3, iterations=10)
-α = 1f1::Float32
+ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
+α = 1f1;
 ### backtracking line search
 prog = Progress(niterations)
 for j=1:niterations
@@ -115,7 +116,7 @@ for j=1:niterations
 
     # linesearch
     function ϕ(α)
-        z1 = Float32.(z .+ α .* gnorm)
+        z1 = z .+ α .* gnorm
         global misfit = f(z1)
         global prior = λ^2f0 * norm(z1)^2f0
         global loss = misfit + prior
@@ -141,9 +142,7 @@ for j=1:niterations
     # Update model and bound projection
     global z .+= step .* gnorm
 
-    ax.imshow(G1(z)[:,:,1,1]', vmin=20, vmax=120)
-
-    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, j), (:steplength, step)])
+    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, j), (:steplength, step)])
 
 end
 
@@ -157,9 +156,9 @@ imshow(G1(z)[:,:,1,1]',vmin=20,vmax=120);title("inversion by NN, $(niterations) 
 subplot(2,2,2);
 imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
 subplot(2,2,3);
-imshow(G1(0f0*z)[:,:,1,1]',vmin=20,vmax=120);title("initial permeability");colorbar();
+imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
 subplot(2,2,4);
-imshow(5*(x_true'-G1(z)[:,:,1,1]'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
+imshow(5*abs.(x_true'-G1(z)[:,:,1,1]'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
 suptitle("MAP (NF prior)")
 tight_layout()
 
@@ -169,7 +168,7 @@ exp_name = "2phaseflow-NFprior"
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
-fig_name = @strdict nv niterations λ
+fig_name = @strdict nv niterations λ α
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_inv.png"), fig);
 
 ## loss
@@ -188,14 +187,17 @@ safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fi
 ## data fitting
 fig = figure(figsize=(20,12));
 for i = 1:5
-    subplot(3,5,i);
-    imshow(yobs[:,:,10*i+1], vmin=0, vmax=1);
+    subplot(4,5,i);
+    imshow(y_init[:,:,10*i+1]', vmin=0, vmax=1);
+    title("initial prediction at snapshot $(10*i+1)")
+    subplot(4,5,i+5);
+    imshow(yobs[:,:,10*i+1]', vmin=0, vmax=1);
     title("true at snapshot $(10*i+1)")
-    subplot(3,5,i+5);
-    imshow(y_predict[:,:,10*i+1], vmin=0, vmax=1);
+    subplot(4,5,i+10);
+    imshow(y_predict[:,:,10*i+1]', vmin=0, vmax=1);
     title("predict at snapshot $(10*i+1)")
-    subplot(3,5,i+10);
-    imshow(5*abs.(yobs[:,:,10*i+1]-y_predict[:,:,10*i+1]), vmin=0, vmax=1);
+    subplot(4,5,i+15);
+    imshow(5*abs.(yobs[:,:,10*i+1]'-y_predict[:,:,10*i+1]'), vmin=0, vmax=1);
     title("5X diff at snapshot $(10*i+1)")
 end
 suptitle("MAP (NF prior)")

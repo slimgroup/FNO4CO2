@@ -18,6 +18,7 @@ proj = false
 # load the network
 JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
 NN = deepcopy(NN_save);
+Flux.testmode!(NN, true);
 
 # Define raw data directory
 mkpath(datadir("training-data"))
@@ -53,9 +54,7 @@ yobs = permutedims(y_true[survey_indices,:,:,1:1],[2,3,1,4]); # ground truth CO2
 x = 20f0 * ones(Float32, n);
 x[:,25:36] .= 120f0;
 x_init = deepcopy(x);
-
-Flux.testmode!(NN, true)
-@time y_predict = relu01(NN(perm_to_tensor(x, grid, AN)));
+@time y_init = relu01(NN(perm_to_tensor(x, grid, AN)));
 
 function S(x)
     return relu01(NN(perm_to_tensor(x, grid, AN)));
@@ -68,62 +67,63 @@ function f(x)
     return loss
 end
 
-####### Projection TV + bound #######
-
-mutable struct compgrid
-    d :: Tuple
-    n :: Tuple
-end
-
-comp_grid = compgrid(d,n)
-
-options          = PARSDMM_options()
-options.FL       = Float32
-options.feas_tol = 0.001f0
-options.evol_rel_tol = 0.0001f0
-set_zero_subnormals(true)
-
-constraint = Vector{SetIntersectionProjection.set_definitions}()
-
-#bounds:
-m_min     = 10.0
-m_max     = 130.0
-set_type  = "bounds"
-TD_OP     = "identity"
-app_mode  = ("matrix","")
-custom_TD_OP = ([],false)
-push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP));
-
-# TV:
-TV = get_TD_operator(comp_grid,"TV",options.FL)[1]
-m_min     = 0.0
-m_max     = quantile([norm(TV*vec(perm[:,:,i]),1) for i = 1:ntrain], .8)
-set_type  = "l1"
-TD_OP     = "TV"
-app_mode  = ("matrix","")
-custom_TD_OP = ([],false)
-push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP))
-
-BLAS.set_num_threads(12)
-(P_sub,TD_OP,set_Prop) = setup_constraints(constraint,comp_grid,options.FL)
-(TD_OP,AtA,l,y) = PARSDMM_precompute_distribute(TD_OP,set_Prop,comp_grid,options)
-
 if proj
     # projection
-    function prj(x)
+    using SetIntersectionProjection
+    ####### Projection TV + bound #######
+
+    mutable struct compgrid
+        d :: Tuple
+        n :: Tuple
+    end
+
+    comp_grid = compgrid(d,n)
+
+    options          = PARSDMM_options()
+    options.FL       = Float32
+    options.feas_tol = 0.001f0
+    options.evol_rel_tol = 0.0001f0
+    set_zero_subnormals(true)
+
+    constraint = Vector{SetIntersectionProjection.set_definitions}()
+
+    #bounds:
+    m_min     = 10.0
+    m_max     = 130.0
+    set_type  = "bounds"
+    TD_OP     = "identity"
+    app_mode  = ("matrix","")
+    custom_TD_OP = ([],false)
+    push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP));
+
+    # TV:
+    TV = get_TD_operator(comp_grid,"TV",options.FL)[1]
+    m_min     = 0.0
+    m_max     = quantile([norm(TV*vec(perm[:,:,i]),1) for i = 1:ntrain], .8)
+    set_type  = "l1"
+    TD_OP     = "TV"
+    app_mode  = ("matrix","")
+    custom_TD_OP = ([],false)
+    push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP))
+
+    BLAS.set_num_threads(12)
+    (P_sub,TD_OP,set_Prop) = setup_constraints(constraint,comp_grid,options.FL)
+    (TD_OP,AtA,l,y) = PARSDMM_precompute_distribute(TD_OP,set_Prop,comp_grid,options)
+
+    function prj(x::Matrix{Float32})
         @time (x1,log_PARSDMM) = PARSDMM(vec(x),AtA,TD_OP,set_Prop,P_sub,comp_grid,options);
-        return reshape(x1, n)
+        return reshape(x1, n)::Matrix{Float32}
     end
 else
     # just box constraints
-    prj(x) = max.(min.(x,130f0),10f0)
+    prj(x::Matrix{Float32}) = max.(min.(x,130f0),10f0)::Matrix{Float32}
 end
 
 # set up plots
 niterations = 50
 
 hisloss = zeros(Float32, niterations+1)
-ls = BackTracking(order=3, iterations=10)
+ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 α = 1f1
 ### backtracking line search
 prog = Progress(niterations)
@@ -144,7 +144,7 @@ for j=1:niterations
 
     # linesearch
     function ϕ(α)
-        x1 = prj(Float32.(x .+ α .* gnorm))
+        x1 = prj(x .+ α .* gnorm)
         misfit = f(x1)
         @show α, misfit
         return misfit
@@ -179,7 +179,7 @@ imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
 subplot(2,2,3);
 imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
 subplot(2,2,4);
-imshow(5*(x_true'-x'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
+imshow(5*abs.(x_true'-x'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
 suptitle("MLE (no prior)")
 tight_layout()
 
@@ -189,7 +189,7 @@ exp_name = "2phaseflow"
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
-fig_name = @strdict proj nv niterations 
+fig_name = @strdict proj nv niterations α
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_inv.png"), fig);
 
 
@@ -204,13 +204,16 @@ safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fi
 ## data fitting
 fig = figure(figsize=(20,12));
 for i = 1:5
-    subplot(3,5,i);
+    subplot(4,5,i);
+    imshow(y_init[:,:,10*i+1]', vmin=0, vmax=1);
+    title("initial prediction at snapshot $(10*i+1)")
+    subplot(4,5,i+5);
     imshow(yobs[:,:,10*i+1]', vmin=0, vmax=1);
     title("true at snapshot $(10*i+1)")
-    subplot(3,5,i+5);
+    subplot(4,5,i+10);
     imshow(y_predict[:,:,10*i+1]', vmin=0, vmax=1);
     title("predict at snapshot $(10*i+1)")
-    subplot(3,5,i+10);
+    subplot(4,5,i+15);
     imshow(5*abs.(yobs[:,:,10*i+1]'-y_predict[:,:,10*i+1]'), vmin=0, vmax=1);
     title("5X diff at snapshot $(10*i+1)")
 end

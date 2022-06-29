@@ -13,14 +13,28 @@ using InvertibleNetworks:ActNorm
 using Seis4CCS.RockPhysics
 using JUDI
 using SlimPlotting
+using InvertibleNetworks
 
 Random.seed!(2022)
-proj = false
+matplotlib.use("agg")
 
 # load the network
 JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
 NN = deepcopy(NN_save);
 Flux.testmode!(NN, true);
+
+# load the NF network
+JLD2.@load "../data/NFtrain/K=6_L=6_e=50_gab_l2=true_lr=0.001_lr_step=10_max_recursion=1_n_hidden=32_nepochs=500_noiseLev=0.02_λ=0.1.jld2";
+G = NetworkMultiScaleHINT(1, n_hidden, L, K;
+                               split_scales=true, max_recursion=max_recursion, p2=0, k2=1, activation=SigmoidLayer(low=0.5f0,high=1.0f0), logdet=false);
+P_curr = get_params(G);
+for j=1:length(P_curr)
+    P_curr[j].data = Params[j].data;
+end
+
+# forward to set up splitting, take the reverse for Asim formulation
+G(zeros(Float32,n[1],n[2],1,1));
+G1 = InvertNetRev(G);
 
 # Define raw data directory
 mkpath(datadir("training-data"))
@@ -53,10 +67,10 @@ survey_indices = Int.(round.(range(1, stop=22, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
 # initial z
-x = 20f0 * ones(Float32, n);
-x[:,25:36] .= 120f0;
-x_init = deepcopy(x);
-@time y_init = relu01(NN(perm_to_tensor(x, grid, AN)));
+x_init = 20f0 * ones(Float32, n);
+x_init[:,25:36] .= 120f0;
+z = vec(G(reshape(x_init, n[1], n[2], 1, 1)));
+@time y_init = relu01(NN(perm_to_tensor(G1(z)[:,:,1,1], grid, AN)));
 
 # set up rock physics
 
@@ -130,58 +144,6 @@ ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=
 fval = Inf32
 α = 1f1
 
-if proj
-    # projection
-    using SetIntersectionProjection
-    ####### Projection TV + bound #######
-
-    mutable struct compgrid
-        d :: Tuple
-        n :: Tuple
-    end
-
-    comp_grid = compgrid(d,n)
-
-    options          = PARSDMM_options()
-    options.FL       = Float32
-    options.feas_tol = 0.001f0
-    options.evol_rel_tol = 0.0001f0
-    set_zero_subnormals(true)
-
-    constraint = Vector{SetIntersectionProjection.set_definitions}()
-
-    #bounds:
-    m_min     = 10.0
-    m_max     = 130.0
-    set_type  = "bounds"
-    TD_OP     = "identity"
-    app_mode  = ("matrix","")
-    custom_TD_OP = ([],false)
-    push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP));
-
-    # TV:
-    TV = get_TD_operator(comp_grid,"TV",options.FL)[1]
-    m_min     = 0.0
-    m_max     = quantile([norm(TV*vec(perm[:,:,i]),1) for i = 1:ntrain], .8)
-    set_type  = "l1"
-    TD_OP     = "TV"
-    app_mode  = ("matrix","")
-    custom_TD_OP = ([],false)
-    push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP))
-
-    BLAS.set_num_threads(12)
-    (P_sub,TD_OP,set_Prop) = setup_constraints(constraint,comp_grid,options.FL)
-    (TD_OP,AtA,l,y) = PARSDMM_precompute_distribute(TD_OP,set_Prop,comp_grid,options)
-
-    function prj(x::Matrix{Float32})
-        @time (x1,log_PARSDMM) = PARSDMM(vec(x),AtA,TD_OP,set_Prop,P_sub,comp_grid,options);
-        return reshape(x1, n)::Matrix{Float32}
-    end
-else
-    # just box constraints
-    prj(x::Matrix{Float32}) = max.(min.(x,130f0),10f0)::Matrix{Float32}
-end
-
 ### fluid-flow physics (FNO)
 S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(perm_to_tensor(x, grid, AN)))[:,:,survey_indices,1], [3,1,2])
 
@@ -189,22 +151,28 @@ S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(perm_to_tensor(x, grid, AN
 R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi)[1]
 
 ### Define result directory
-sim_name = "3D_FNO"
-exp_name = "coupled_inversion"
+sim_name = "coupled_inversion"
+exp_name = "NFprior"
 plot_path = plotsdir(sim_name, exp_name)
 save_path = datadir(sim_name, exp_name)
 
 # iterations
-grad_iterations = 100
+niterations = 100
 
 # batchsize in wave equation, i.e. in each iteration the number of sources for each vintage to compute the gradient
-nssample = 8
+nssample = nsrc
 
 ### track iterations
-Loss = zeros(Float32,grad_iterations)
-prog = Progress(grad_iterations)
+hisloss = zeros(Float32, niterations+1)
+hismisfit = zeros(Float32, niterations+1)
+hisprior = zeros(Float32, niterations+1)
+prog = Progress(niterations)
 
-for iter=1:grad_iterations
+## weighting
+λ = 2f0;
+α = 1f1;
+
+for iter=1:niterations
 
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]                             # select random source idx for each vintage
     q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
@@ -218,67 +186,123 @@ for iter=1:grad_iterations
     end
 
     # function value
-    function f(K)
-        c = S(K); v = R(c); dpred = F(v);
-        global loss = 0.5f0 * norm(dpred-dobs)^2f0
-        return loss
+    function f(z)
+        x = G1(z)[:,:,1,1]; c = S(x); v = R(c); dpred = F(v);
+        global misfit = 0.5f0 * norm(dpred-dobs)^2f0
+        global prior = λ^2f0 * norm(z)^2f0
+        global fval = misfit + prior
+        @show misfit, prior, fval
+        return fval
     end
 
     ## AD by Flux
-    @time g = gradient(()->f(x), Flux.params(x))
+    @time g = gradient(()->f(z), Flux.params(z))
+    
+    ## initial misfit
+    if iter == 1
+        hisloss[1] = fval
+        hismisfit[1] = misfit
+        hisprior[1] = prior
+    end
 
     # get the gradient from AD
-    gvec = g.grads[x]::Matrix{Float32}
+    gvec = g.grads[z]
     p = -gvec/norm(gvec, Inf)
 
     # linesearch
     function ϕ(α)::Float32
         try
-            global fval = f(prj(x + α * p))
+            global fval = f(z + α * p)
         catch e
             @assert typeof(e) == DomainError
-            global fval = Float32(Inf)
+            global fval = Inf32
         end
         return fval
     end
 
-    global α, fval = ls(ϕ, α, fval, dot(gvec, p))
+    try
+        global step, fval = ls(ϕ, α, fval, dot(gvec, p))
+    catch e
+        println("linesearch failed at iteration: ",j)
+        global niterations = j
+        hisloss[j+1] = fval
+        hismisfit[j+1] = misfit
+        hisprior[j+1] = prior
+        break
+    end
 
-    Loss[iter] = loss
-    loss_iter = Loss[1:iter]
+    global α = 1.2f0 * step
+
+    hisloss[iter+1] = fval
+    hismisfit[iter+1] = misfit
+    hisprior[iter+1] = prior
 
     # Update model and bound projection
-    global x = prj(x + α * p)
-    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, iter), (:stepsize, α)])
+    global z .+= step .* p
+
+    y_predict = S(G1(z)[:,:,1,1]);
+
+    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict iter x rand_ns α grad_iterations nv nsrc nrec proj loss_iter
+    save_dict = @strdict iter nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
         safe=true
     )
 
-    ### plot current inverted permeability
+    ## save figure
+    fig_name = @strdict iter nssample λ niterations nv nsrc nrec survey_indices
+
+    ## compute true and plot
+    SNR = -2f1 * log10(norm(x_true-G1(z)[:,:,1,1])/norm(x_true))
     fig = figure(figsize=(20,12));
-    subplot(1,3,1);
-    plot_velocity(mean(perm[:,:,1:ntrain], dims=3)[:,:,1]', d; vmin=10f0, vmax=130f0, new_fig=false, name="initial");
-    subplot(1,3,2);
-    plot_velocity(x', d; vmin=10f0, vmax=130f0, new_fig=false, name="inversion after $iter iterations");
-    subplot(1,3,3);
-    plot_velocity(x_true', d; vmin=10f0, vmax=130f0, new_fig=false, name="ground truth");
+    subplot(2,2,1);
+    imshow(G1(z)[:,:,1,1]',vmin=20,vmax=120);title("inversion by NN, $(iter) iter");colorbar();
+    subplot(2,2,2);
+    imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
+    subplot(2,2,3);
+    imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
+    subplot(2,2,4);
+    imshow(5*abs.(x_true'-G1(z)[:,:,1,1]'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter")
     tight_layout()
-    safesave(joinpath(plot_path, savename(save_dict; digits=6)*"_inversion.png"), fig);
+    safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_inv.png"), fig);
     close(fig)
 
-    ### save loss
+    ## loss
     fig = figure(figsize=(20,12));
-    plot(loss_iter);
-    xlabel("iterations")
-    ylabel("value")
-    title("Objective function at iteration $iter")
-    tight_layout();
-    safesave(joinpath(plot_path, savename(save_dict; digits=6)*"_objective.png"), fig);
+    subplot(3,1,1);
+    plot(hisloss[1:iter+1]);title("loss=$(hisloss[iter+1])");
+    subplot(3,1,2);
+    plot(hismisfit[1:iter+1]);title("misfit=$(hismisfit[iter+1])");
+    subplot(3,1,3);
+    plot(hisprior[1:iter+1]);title("prior=$(hisprior[iter+1])");
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter")
+    tight_layout()
+    safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_loss.png"), fig);
+    close(fig)
+
+    ## data fitting
+    fig = figure(figsize=(20,12));
+    for i = 1:5
+        subplot(4,5,i);
+        imshow(y_init[:,:,survey_indices[2*i],1]', vmin=0, vmax=1);
+        title("initial prediction at snapshot $(survey_indices[2*i])")
+        subplot(4,5,i+5);
+        imshow(sw_true[2*i,:,:]', vmin=0, vmax=1);
+        title("true at snapshot $(survey_indices[2*i])")
+        subplot(4,5,i+10);
+        imshow(y_predict[2*i,:,:]', vmin=0, vmax=1);
+        title("predict at snapshot $(survey_indices[2*i])")
+        subplot(4,5,i+15);
+        imshow(5*abs.(sw_true[2*i,:,:]'-y_predict[2*i,:,:]'), vmin=0, vmax=1);
+        title("5X diff at snapshot $(survey_indices[2*i])")
+    end
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter")
+    tight_layout()
+    safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
     close(fig)
 
 end
