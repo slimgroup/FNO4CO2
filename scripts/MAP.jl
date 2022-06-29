@@ -62,6 +62,13 @@ nv = nt
 survey_indices = Int.(round.(range(1, stop=nt, length=nv)))
 yobs = permutedims(y_true[survey_indices,:,:,1:1],[2,3,1,4]); # ground truth CO2 concentration at these vintages
 
+## add noise
+noise_ = randn(Float32, size(yobs))
+snr = 5f0
+noise_ = noise_/norm(noise_) *  norm(yobs) * 10f0^(-snr/20f0)
+σ = Float32.(norm(noise_)/sqrt(length(noise_)))
+yobs = yobs + noise_
+
 # initial z
 x_init = 20f0 * ones(Float32, n);
 x_init[:,25:36] .= 120f0;
@@ -72,13 +79,13 @@ z = vec(G(reshape(x_init, n[1], n[2], 1, 1)));
 λ = 1f0;
 
 function S(x)
-    return relu01(NN(perm_to_tensor(x, grid, AN)));
+    return relu01(NN(perm_to_tensor(x, grid, AN)))[:,:,survey_indices,1];
 end
 
 # function value
 function f(z)
     println("evaluate f")
-    loss = 0.5f0 * norm(S(G1(z)[:,:,1,1])-yobs)^2f0
+    loss = .5f0/σ^2f0 * norm(S(G1(z)[:,:,1,1])-yobs)^2f0
     return loss
 end
 
@@ -98,7 +105,7 @@ for j=1:niterations
 
     @time grads = gradient(p) do
         global misfit = f(z)
-        global prior = λ^2f0 * norm(z)^2f0
+        global prior = λ^2f0 * norm(z)^2f0/length(z)
         global loss = misfit + prior
         @show misfit, prior, loss
         println("evaluate g")
@@ -118,7 +125,7 @@ for j=1:niterations
     function ϕ(α)
         z1 = z .+ α .* gnorm
         global misfit = f(z1)
-        global prior = λ^2f0 * norm(z1)^2f0
+        global prior = λ^2f0 * norm(z1)^2f0/length(z1)
         global loss = misfit + prior
         @show misfit, prior, loss, α
         return loss
@@ -159,7 +166,7 @@ subplot(2,2,3);
 imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
 subplot(2,2,4);
 imshow(5*abs.(x_true'-G1(z)[:,:,1,1]'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
-suptitle("MAP (NF prior)")
+suptitle("MAP (NF prior), snr=$snr")
 tight_layout()
 
 sim_name = "FNOinversion"
@@ -168,7 +175,7 @@ exp_name = "2phaseflow-NFprior"
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
-fig_name = @strdict nv niterations λ α
+fig_name = @strdict nv niterations λ α snr
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_inv.png"), fig);
 
 ## loss
@@ -179,7 +186,7 @@ subplot(3,1,2);
 plot(hismisfit[1:niterations+1]);title("misfit");
 subplot(3,1,3);
 plot(hisprior[1:niterations+1]);title("prior");
-suptitle("MAP (NF prior)")
+suptitle("MAP (NF prior), snr=$snr")
 tight_layout()
 
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
@@ -200,6 +207,6 @@ for i = 1:5
     imshow(5*abs.(yobs[:,:,10*i+1]'-y_predict[:,:,10*i+1]'), vmin=0, vmax=1);
     title("5X diff at snapshot $(10*i+1)")
 end
-suptitle("MAP (NF prior)")
+suptitle("MAP (NF prior), snr=$snr")
 tight_layout()
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
