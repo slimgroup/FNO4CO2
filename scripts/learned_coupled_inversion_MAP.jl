@@ -79,9 +79,14 @@ phi = 0.25f0 * ones(Float32,n)  # porosity
 rho = 2200 * ones(Float32,n)    # density
 vp_stack = Patchy(sw_true,vp,rho,phi)[1]   # time-varying vp
 
-##### Wave equation
+## upsampling
+upsample = 5
+u(x::Vector{Matrix{Float32}}) = [repeat(x[i], inner=(upsample,upsample)) for i = 1:nv]
+vp_stack_up = u(vp_stack)
 
-d = (15f0, 15f0)        # discretization for wave equation
+##### Wave equation
+n = n.*upsample
+d = (15f0/upsample, 15f0/upsample)        # discretization for wave equation
 o = (0f0, 0f0)          # origin
 
 extentx = (n[1]-1)*d[1] # width of model
@@ -90,29 +95,29 @@ extentz = (n[2]-1)*d[2] # depth of model
 nsrc = 32       # num of sources
 nrec = 960      # num of receivers
 
-model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 80) for i = 1:nv]   # wave model
+model = [Model(n, d, o, (1f3 ./ vp_stack_up[i]).^2f0; nb = 80) for i = 1:nv]   # wave model
 
 timeS = timeR = 750f0               # recording time
 dtS = dtR = 1f0                     # recording time sampling rate
 ntS = Int(floor(timeS/dtS))+1       # time samples
 ntR = Int(floor(timeR/dtR))+1       # source time samples
 
-# source locations -- on the left hand side of the model
-xsrc = convertToCell(range(1*d[1],stop=1*d[1],length=nsrc))
+# source locations -- half at the left hand side of the model, half on top
+xsrc = convertToCell(vcat(range(d[1],stop=d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
-zsrc = convertToCell(range(d[2],stop=extentz,length=nsrc))
+zsrc = convertToCell(vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
 
-# receiver locations -- on the right hand side of the model
-xrec = range(extentx,stop=extentx,length=nrec)
+# receiver locations -- half at the right hand side of the model, half on top
+xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
 yrec = 0f0
-zrec = range(d[2],stop=extentz,length=nrec)
+zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
 
 # set up src/rec geometry
 srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
 recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
 
 # set up source
-f0 = 0.02f0     # kHz
+f0 = 0.05f0     # kHz
 wavelet = ricker_wavelet(timeS, dtS, f0)
 q = judiVector(srcGeometry, wavelet)
 
@@ -121,13 +126,13 @@ Ftrue = [judiModeling(model[i], srcGeometry, recGeometry) for i = 1:nv] # acoust
 
 # Define seismic data directory
 mkpath(datadir("seismic-data"))
-misc_dict = @strdict nsrc nrec
+misc_dict = @strdict nsrc nrec upsample
 
 ### generate/load data
 if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     println("generating data")
     global d_obs = [Ftrue[i]*q for i = 1:nv]
-    seismic_dict = @strdict nsrc nrec d_obs q srcGeometry recGeometry model
+    seismic_dict = @strdict nsrc nrec upsample d_obs q srcGeometry recGeometry model
     @tagsave(
         datadir("seismic-data", savename(seismic_dict, "jld2"; digits=6)),
         seismic_dict;
@@ -138,6 +143,18 @@ else
     JLD2.@load datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)) d_obs
     global d_obs = d_obs
 end
+
+## add noise
+noise_ = deepcopy(d_obs)
+for i = 1:nv
+    for j = 1:nsrc
+        noise_[i].data[j] = randn(Float32, ntR, nrec)
+    end
+end
+snr = 10f0
+noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
+σ = Float32.(norm(noise_)/sqrt(length(noise_)))
+d_obs = d_obs + noise_
 
 # BackTracking linesearch algorithm
 ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
@@ -169,7 +186,7 @@ hisprior = zeros(Float32, niterations+1)
 prog = Progress(niterations)
 
 ## weighting
-λ = 2f0;
+λ = 1f0;
 α = 1f1;
 
 for iter=1:niterations
@@ -187,9 +204,9 @@ for iter=1:niterations
 
     # function value
     function f(z)
-        x = G1(z)[:,:,1,1]; c = S(x); v = R(c); dpred = F(v);
-        global misfit = 0.5f0 * norm(dpred-dobs)^2f0
-        global prior = λ^2f0 * norm(z)^2f0
+        x = G1(z)[:,:,1,1]; c = S(x); v = R(c); v_up = u(v); dpred = F(v_up);
+        global misfit = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
+        global prior = λ^2f0 * norm(z)^2f0/length(z)
         global fval = misfit + prior
         @show misfit, prior, fval
         return fval
@@ -245,7 +262,7 @@ for iter=1:niterations
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict iter nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior
+    save_dict = @strdict iter snr nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -253,7 +270,7 @@ for iter=1:niterations
     )
 
     ## save figure
-    fig_name = @strdict iter nssample λ niterations nv nsrc nrec survey_indices
+    fig_name = @strdict iter snr nssample λ niterations nv nsrc nrec survey_indices
 
     ## compute true and plot
     SNR = -2f1 * log10(norm(x_true-G1(z)[:,:,1,1])/norm(x_true))
@@ -266,7 +283,7 @@ for iter=1:niterations
     imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
     subplot(2,2,4);
     imshow(5*abs.(x_true'-G1(z)[:,:,1,1]'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
-    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter")
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_inv.png"), fig);
     close(fig)
@@ -279,7 +296,7 @@ for iter=1:niterations
     plot(hismisfit[1:iter+1]);title("misfit=$(hismisfit[iter+1])");
     subplot(3,1,3);
     plot(hisprior[1:iter+1]);title("prior=$(hisprior[iter+1])");
-    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter")
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_loss.png"), fig);
     close(fig)
@@ -300,7 +317,7 @@ for iter=1:niterations
         imshow(5*abs.(sw_true[2*i,:,:]'-y_predict[2*i,:,:]'), vmin=0, vmax=1);
         title("5X diff at snapshot $(survey_indices[2*i])")
     end
-    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter")
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
     close(fig)
