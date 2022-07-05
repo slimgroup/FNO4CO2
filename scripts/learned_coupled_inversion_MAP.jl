@@ -1,4 +1,11 @@
 # author: Ziyi Yin, ziyi.yin@gatech.edu 
+## This script conducts learned coupled inversion where time-lapse seismic data is used to directly invert for the permeability in the Earth subsurface
+## Three units are involved in the learned coupled inversion framework, namely
+## - a pre-trained FNO as a surrogate for the fluid flow simulator, which maps permeability to time evolution of CO2 concentration
+## - a rock physics model that maps each CO2 concentration to acoustic velocity of the rock
+## - a wave physics model that generates acoustic seismic data from the velocity (using JUDI)
+## In particular, this script uses a pre-trained normalizing flow as a prior for permeability models
+## and uses Asim's formulation to invert for the latent variable -- check http://proceedings.mlr.press/v119/asim20a/asim20a.pdf for more details
 
 using DrWatson
 @quickactivate "FNO4CO2"
@@ -177,7 +184,7 @@ save_path = datadir(sim_name, exp_name)
 niterations = 100
 
 # batchsize in wave equation, i.e. in each iteration the number of sources for each vintage to compute the gradient
-nssample = nsrc
+nssample = 8
 
 ### track iterations
 hisloss = zeros(Float32, niterations+1)
@@ -187,6 +194,8 @@ prog = Progress(niterations)
 
 ## weighting
 λ = 1f0;
+
+## initial steplength
 α = 1f1;
 
 for iter=1:niterations
@@ -213,7 +222,7 @@ for iter=1:niterations
     end
 
     ## AD by Flux
-    @time g = gradient(()->f(z), Flux.params(z))
+    @time g = gradient(()->f(z), Flux.params(z)).grads[z]
     
     ## initial misfit
     if iter == 1
@@ -222,9 +231,8 @@ for iter=1:niterations
         hisprior[1] = prior
     end
 
-    # get the gradient from AD
-    gvec = g.grads[z]
-    p = -gvec/norm(gvec, Inf)
+    # (normalized) update direction
+    p = -g/norm(g, Inf)
 
     # linesearch
     function ϕ(α)::Float32
@@ -238,7 +246,7 @@ for iter=1:niterations
     end
 
     try
-        global step, fval = ls(ϕ, α, fval, dot(gvec, p))
+        global step, fval = ls(ϕ, α, fval, dot(g, p))
     catch e
         println("linesearch failed at iteration: ",j)
         global niterations = j
