@@ -36,11 +36,6 @@ for i = 1:nsamples
     @time conc[:,:,:,i] = flow(perm[:,:,i], ϕ, qw, qo, grid_)[1];
 end
 
-# Define raw data directory
-mkpath(datadir("training-data"))
-perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
-conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
-
 matwrite(conc_path, Dict(
 	"conc" => conc,
 ); compress = true)

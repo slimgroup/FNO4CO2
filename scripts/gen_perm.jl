@@ -13,7 +13,7 @@ using Images
 Random.seed!(1234)
 
 
-num_sample = 1200
+num_sample = 10000
 n = (64,64)
 d = (15.0, 15.0)
 
@@ -26,8 +26,12 @@ end
 nb_of_samples = n[1]
 nb_of_functions = 2
 
+theta0 = 5
+delta = 25
+cons = 1f-5
+
 X = convert(Array{Float32},reshape(range(4f0,stop=n[1]*4f0,length=n[1]),:,1))
-Cova = gaussian_kernel(X,X',theta0=5,delta=25,cons=1f-5)
+Cova = gaussian_kernel(X,X',theta0=theta0,delta=delta,cons=cons)
 
 figure();
 for i = 1:10
@@ -60,13 +64,6 @@ for i = 1:num_sample
     perm[:,:,i] = deepcopy(perm_)
 end
 
-perm_ext = zeros(Float32, n[1], n[2], num_sample);
-for i = 1:num_sample
-    perm_ext[:,:,i] = Float32.(imfilter(perm[:,:,i],Kernel.gaussian(3f0*rand()+1f0)))
-end
-
-perm = cat(perm, perm_ext, dims=3)
-
 figure(figsize=(12,12));
 for i = 1:9
     subplot(3,3,i)
@@ -86,8 +83,15 @@ suptitle("millidarcy -- samples")
 # Define raw data directory
 mkpath(datadir("training-data"))
 perm_path = datadir("training-data", "perm_gridspacing15.0.mat")
-conc_path = datadir("training-data", "conc_gridspacing15.0.mat")
 
+param_dict = @strdict num_sample n d theta0 delta cons perm
+@tagsave(
+    datadir("training-data", savename(param_dict, "jld2"; digits=6)),
+    param_dict;
+    safe = true
+)
+
+perm = perm[:,:,1:1200]
 matwrite(perm_path, Dict(
 	"perm" => perm,
 ); compress = true)

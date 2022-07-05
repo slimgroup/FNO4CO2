@@ -4,6 +4,8 @@
 ## - a pre-trained FNO as a surrogate for the fluid flow simulator, which maps permeability to time evolution of CO2 concentration
 ## - a rock physics model that maps each CO2 concentration to acoustic velocity of the rock
 ## - a wave physics model that generates acoustic seismic data from the velocity (using JUDI)
+## In particular, this script uses a pre-trained normalizing flow as a prior for permeability models
+## and uses Asim's formulation to invert for the latent variable -- check http://proceedings.mlr.press/v119/asim20a/asim20a.pdf for more details
 
 using DrWatson
 @quickactivate "FNO4CO2"
@@ -18,6 +20,7 @@ using InvertibleNetworks:ActNorm
 using Seis4CCS.RockPhysics
 using JUDI
 using SlimPlotting
+using InvertibleNetworks
 
 Random.seed!(2022)
 matplotlib.use("agg")
@@ -26,6 +29,19 @@ matplotlib.use("agg")
 JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
 NN = deepcopy(NN_save);
 Flux.testmode!(NN, true);
+
+# load the NF network
+JLD2.@load "../data/NFtrain/K=6_L=6_e=50_gab_l2=true_lr=0.001_lr_step=10_max_recursion=1_n_hidden=32_nepochs=500_noiseLev=0.02_λ=0.1.jld2";
+G = NetworkMultiScaleHINT(1, n_hidden, L, K;
+                               split_scales=true, max_recursion=max_recursion, p2=0, k2=1, activation=SigmoidLayer(low=0.5f0,high=1.0f0), logdet=false);
+P_curr = get_params(G);
+for j=1:length(P_curr)
+    P_curr[j].data = Params[j].data;
+end
+
+# forward to set up splitting, take the reverse for Asim formulation
+G(zeros(Float32,n[1],n[2],1,1));
+G1 = InvertNetRev(G);
 
 # Define raw data directory
 mkpath(datadir("training-data"))
@@ -57,11 +73,11 @@ nv = 11
 survey_indices = Int.(round.(range(1, stop=22, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
-# initial x
+# initial z
 x_init = 20f0 * ones(Float32, n);
 x_init[:,25:36] .= 120f0;
-x = deepcopy(x_init);
-@time y_init = relu01(NN(perm_to_tensor(x, grid, AN)));
+z = vec(G(reshape(x_init, n[1], n[2], 1, 1)));
+@time y_init = relu01(NN(perm_to_tensor(G1(z)[:,:,1,1], grid, AN)));
 
 # set up rock physics
 
@@ -160,7 +176,7 @@ R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi)[1]
 
 ### Define result directory
 sim_name = "coupled_inversion"
-exp_name = "no_prior"
+exp_name = "NFprior"
 plot_path = plotsdir(sim_name, exp_name)
 save_path = datadir(sim_name, exp_name)
 
@@ -172,7 +188,12 @@ nssample = 8
 
 ### track iterations
 hisloss = zeros(Float32, niterations+1)
+hismisfit = zeros(Float32, niterations+1)
+hisprior = zeros(Float32, niterations+1)
 prog = Progress(niterations)
+
+## weighting
+λ = 1f0;
 
 ## initial steplength
 α = 1f1;
@@ -191,19 +212,23 @@ for iter=1:niterations
     end
 
     # function value
-    function f(x)
-        c = S(x); v = R(c); v_up = u(v); dpred = F(v_up);
-        global fval = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
-        @show fval
+    function f(z)
+        x = G1(z)[:,:,1,1]; c = S(x); v = R(c); v_up = u(v); dpred = F(v_up);
+        global misfit = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
+        global prior = λ^2f0 * norm(z)^2f0/length(z)
+        global fval = misfit + prior
+        @show misfit, prior, fval
         return fval
     end
 
     ## AD by Flux
-    @time g = gradient(()->f(x), Flux.params(x)).grads[x]
+    @time g = gradient(()->f(z), Flux.params(z)).grads[z]
     
-    ## initial loss
+    ## initial misfit
     if iter == 1
         hisloss[1] = fval
+        hismisfit[1] = misfit
+        hisprior[1] = prior
     end
 
     # (normalized) update direction
@@ -212,7 +237,7 @@ for iter=1:niterations
     # linesearch
     function ϕ(α)::Float32
         try
-            global fval = f(x + α * p)
+            global fval = f(z + α * p)
         catch e
             @assert typeof(e) == DomainError
             global fval = Inf32
@@ -226,22 +251,26 @@ for iter=1:niterations
         println("linesearch failed at iteration: ",j)
         global niterations = j
         hisloss[j+1] = fval
+        hismisfit[j+1] = misfit
+        hisprior[j+1] = prior
         break
     end
 
     global α = 1.2f0 * step
 
     hisloss[iter+1] = fval
+    hismisfit[iter+1] = misfit
+    hisprior[iter+1] = prior
 
     # Update model and bound projection
-    global x .+= step .* p
+    global z .+= step .* p
 
-    y_predict = S(x);
+    y_predict = S(G1(z)[:,:,1,1]);
 
-    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, iter), (:stepsize, step)])
+    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict iter snr nssample x rand_ns step niterations nv nsrc nrec survey_indices hisloss
+    save_dict = @strdict iter snr nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -249,28 +278,33 @@ for iter=1:niterations
     )
 
     ## save figure
-    fig_name = @strdict iter snr nssample niterations nv nsrc nrec survey_indices
+    fig_name = @strdict iter snr nssample λ niterations nv nsrc nrec survey_indices
 
     ## compute true and plot
-    SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
+    SNR = -2f1 * log10(norm(x_true-G1(z)[:,:,1,1])/norm(x_true))
     fig = figure(figsize=(20,12));
     subplot(2,2,1);
-    imshow(x',vmin=20,vmax=120);title("inversion by NN, $(iter) iter");colorbar();
+    imshow(G1(z)[:,:,1,1]',vmin=20,vmax=120);title("inversion by NN, $(iter) iter");colorbar();
     subplot(2,2,2);
     imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
     subplot(2,2,3);
     imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
     subplot(2,2,4);
-    imshow(5*abs.(x_true'-x'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
-    suptitle("Learned Coupled Inversion at iter $iter, seismic data snr=$snr")
+    imshow(5*abs.(x_true'-G1(z)[:,:,1,1]'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_inv.png"), fig);
     close(fig)
 
     ## loss
     fig = figure(figsize=(20,12));
+    subplot(3,1,1);
     plot(hisloss[1:iter+1]);title("loss=$(hisloss[iter+1])");
-    suptitle("Learned Coupled Inversion at iter $iter, seismic data snr=$snr")
+    subplot(3,1,2);
+    plot(hismisfit[1:iter+1]);title("misfit=$(hismisfit[iter+1])");
+    subplot(3,1,3);
+    plot(hisprior[1:iter+1]);title("prior=$(hisprior[iter+1])");
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_loss.png"), fig);
     close(fig)
@@ -291,7 +325,7 @@ for iter=1:niterations
         imshow(5*abs.(sw_true[2*i,:,:]'-y_predict[2*i,:,:]'), vmin=0, vmax=1);
         title("5X diff at snapshot $(survey_indices[2*i])")
     end
-    suptitle("Learned Coupled Inversion at iter $iter, seismic data snr=$snr")
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
     close(fig)

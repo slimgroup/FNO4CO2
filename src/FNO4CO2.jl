@@ -14,9 +14,10 @@ try
     @assert ENV["FNO4CO2GPU"] == "1"
     CUDA.device()
     global gpu_flag=true
+    @info "using GPU for FNO4CO2"
 catch e
-    println("CUDA.device() found no GPU device on this machine.")
     global gpu_flag=false
+    @info "using CPU for FNO4CO2"
 end
 
 # Utilities.
@@ -24,5 +25,8 @@ include("./utils.jl")
 
 # 3D FNO model.
 include("./fno3dstruct.jl")
+
+# sorry but there are currently some hacks
+include("./hack.jl")
 
 end
