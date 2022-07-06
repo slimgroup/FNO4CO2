@@ -67,8 +67,8 @@ end
 
 tensorize(x::AbstractArray{Float32,3},grid::Array{Float32,3},AN::ActNorm) = cat([tensorize(x[:,:,i],grid,AN) for i = 1:size(x,3)]..., dims=4)
 
-x_train = tensorize(models[1:s:end,1:s:end,1:ntrain],grid,AN);
-x_valid = tensorize(models[1:s:end,1:s:end,ntrain+1:ntrain+nvalid],grid,AN);
+x_train = tensorize(models[:,:,1:ntrain],grid,AN);
+x_valid = tensorize(models[:,:,ntrain+1:ntrain+nvalid],grid,AN);
 
 NN = Net2d(modes, width; in_channels=4, out_channels=1, mid_channels=128)
 gpu_flag && (global NN = NN |> gpu)
