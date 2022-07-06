@@ -105,7 +105,7 @@ for ep = 1:epochs
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
         x = x_train[:, :, :, idx_e[:,b]]
-        y = y_train[:, :, idx_e[:,b]]
+        y = y_train[:, :, 1, idx_e[:,b]]
         if gpu_flag
             x = x |> gpu
             y = y |> gpu
