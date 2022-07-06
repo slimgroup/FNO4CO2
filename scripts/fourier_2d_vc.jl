@@ -21,7 +21,6 @@ Random.seed!(1234)
 # Define raw data directory
 mkpath(datadir("training-data"))
 input_path = datadir("training-data", "training-pairs.h5")
-output_path = datadir("training-data", "data-pairs.h5")
 
 # Download the dataset into the data directory if it does not exist
 if ~isfile(input_path)
@@ -31,7 +30,6 @@ end
 
 # load data
 input = h5open(input_path, "r");
-output = h5open(output_path, "r");
 
 ## d, n
 n = (160, 205)
