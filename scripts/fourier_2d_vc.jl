@@ -152,7 +152,7 @@ for ep = 1:epochs
     close(fig)
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = .5f0 * norm((NN(x_valid[:, :, :, valid_idx] |> gpu)) - (y_valid[:, :, valid_idx] |> gpu))^2f0
+    Loss_valid[ep] = .5f0 * norm((NN(x_valid[:, :, :, valid_idx] |> gpu)) - (y_valid[:, :, 1, valid_idx] |> gpu))^2f0
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
