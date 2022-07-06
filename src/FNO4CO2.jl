@@ -26,6 +26,9 @@ include("./utils.jl")
 # 3D FNO model.
 include("./fno3dstruct.jl")
 
+# 2D FNO model.
+include("./fno2dstruct.jl")
+
 # sorry but there are currently some hacks
 include("./hack.jl")
 
