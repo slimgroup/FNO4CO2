@@ -15,14 +15,6 @@ using ProgressMeter
 using InvertibleNetworks:ActNorm
 matplotlib.use("Agg")
 
-try
-    CUDA.device()
-    global gpu_flag=true
-catch e
-    println("CUDA.device() found no GPU device on this machine.")
-    global gpu_flag=false
-end
-
 Random.seed!(1234)
 
 # Define raw data directory

@@ -5,6 +5,15 @@ relu01(x::AbstractArray{Float32}) = 1f0.-relu.(1f0.-relu.(x))
 
 ##### generate grid #####
 
+## x,y
+function gen_grid(n::Tuple{Integer, Integer},d::Tuple{Float32, Float32})
+    grid = zeros(Float32,n[1],n[2],2)   
+    grid[:,:,1] = repeat(reshape(collect(range(d[1],stop=n[1]*d[1],length=n[1])), :, 1)',n[2])' # x
+    grid[:,:,2] = repeat(reshape(collect(range(d[2],stop=n[2]*d[2],length=n[2])), 1, :),n[1])   # z
+    return grid
+end
+
+## x,y,t
 function gen_grid(n::Tuple{Integer, Integer},d::Tuple{Float32, Float32},nt::Int,dt::Float32)
     tsample = [(i-1)*dt for i = 1:nt]
     return gen_grid(n, d, tsample)
