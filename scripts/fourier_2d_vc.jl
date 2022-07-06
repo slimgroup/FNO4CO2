@@ -14,6 +14,7 @@ using CUDA
 using ProgressMeter
 using InvertibleNetworks:ActNorm
 using HDF5
+using SlimPlotting
 matplotlib.use("Agg")
 
 Random.seed!(1234)
@@ -46,7 +47,7 @@ model_base = read(input["model-base"])[:,:,1];
 models = read(input["models"]);
 
 ## network structure
-batch_size = 5
+batch_size = 32
 learning_rate = 2f-3
 epochs = 500
 modes = 24
@@ -124,27 +125,31 @@ for ep = 1:epochs
     Flux.testmode!(NN, true)
     y_predict = NN(x_plot |> gpu)   |> cpu
 
-    fig = figure(figsize=(20, 12))
+    fig = figure(figsize=(16, 12))
 
     subplot(3,2,1)
-    imshow(x_plot[:,:,1,1])
-    title("background model")
-
+    plot_velocity(x_plot[:,:,1,1], (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="Blues"); colorbar();
+    
     subplot(3,2,2)
-    imshow(x_plot[:,:,2,1])
-    title("given RTM")
-
+    plot_simage(y_predict[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted continued RTM"); colorbar();
+    
     subplot(3,2,3)
-    imshow(y_predict[:,:,1], vmin=minimum(y_plot), vmax=maximum(y_plot))
-    title("predicted continuted RTM")
-
+    plot_simage(y_plot, (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="true continued RTM"); colorbar();
+    
     subplot(3,2,4)
-    imshow(y_plot, vmin=minimum(y_plot), vmax=maximum(y_plot))
-    title("true continuted RTM")
-
+    plot_simage(y_predict[:,:,1]-y_plot, (1f1, 2.5f1); new_fig=false, cmap="RdGy", vmax=2f1, name="diff"); colorbar();
+    
     subplot(3,2,5)
-    imshow(5f0 .* abs.(y_predict[:,:,1]-y_plot), vmin=minimum(y_plot), vmax=maximum(y_plot))
-    title("5X abs difference")
+    plot(y_predict[:,80,1]);
+    plot(y_plot[:,80]);
+    legend(["predict","true"])
+    title("vertical profile at 2km")
+    
+    subplot(3,2,6)
+    plot(y_predict[:,164,1]);
+    plot(y_plot[:,164]);
+    legend(["predict","true"])
+    title("vertical profile at 4.12km")
 
     tight_layout()
     fig_name = @strdict ep batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid nsamples
@@ -152,7 +157,7 @@ for ep = 1:epochs
     close(fig)
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = .5f0 * norm((NN(x_valid[:, :, :, valid_idx] |> gpu)) - (y_valid[:, :, 1, valid_idx] |> gpu))^2f0
+    Loss_valid[ep] = .5f0 * norm((NN(x_valid |> gpu)) - (y_valid[:, :, 1, :] |> gpu))^2f0 * batch_size/nvalid
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
