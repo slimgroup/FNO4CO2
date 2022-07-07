@@ -48,15 +48,15 @@ function (L::SpectralConv3d_fast)(x::AbstractArray{Float32, 5})
     modes2 = size(L.weights1,2)
     modes3 = size(L.weights1,3)
     ### only keep low frequency coefficients
-    out_ft = cat(cat(cat(compl_mul3d(x_ft[1:modes1, 1:modes2, 1:modes3, :,:], L.weights1), 
-                0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :),
+    out_ft = cat(cat(cat(compl_mul3d(x_ft[1:modes1, 1:modes2, 1:modes3, :,:], L.weights1),
+                zeros(ComplexF32, modes1, modes2, size(x_ft,3)-2*modes3, size(x_ft,4), size(x_ft,5)), 
                 compl_mul3d(x_ft[1:modes1, 1:modes2, end-modes3+1:end,:,:], L.weights2),dims=3),
-                0f0im .* view(x_ft, 1:modes1, 1:size(x_ft, 2)-2*modes2, :, :, :),
+                zeros(ComplexF32, modes1, size(x_ft, 2)-2*modes2, size(x_ft,3), size(x_ft,4), size(x_ft,5)),
                 cat(compl_mul3d(x_ft[1:modes1, end-modes2+1:end, 1:modes3,:,:], L.weights3),
-                0f0im .* view(x_ft, 1:modes1, 1:modes2, 1:size(x_ft,3)-2*modes3, :, :),
+                zeros(ComplexF32, modes1, modes2, size(x_ft,3)-2*modes3, size(x_ft,4), size(x_ft,5)),
                 compl_mul3d(x_ft[1:modes1, end-modes2+1:end, end-modes3+1:end,:,:], L.weights4),dims=3)
                 ,dims=2),
-                0f0im .* view(x_ft, 1:size(x_ft,1)-modes1, :, :, :, :),dims=1)
+                zeros(ComplexF32, size(x_ft,1)-modes1, size(x_ft,2), size(x_ft,3), size(x_ft,4), size(x_ft,5)),dims=1)
     out_ft = irfft(out_ft, size(x,1),[1,2,3])
 end
 

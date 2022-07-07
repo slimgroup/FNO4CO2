@@ -47,7 +47,7 @@ model_base = read(input["model-base"])[:,:,1];
 models = read(input["models"]);
 
 ## network structure
-batch_size = 10
+batch_size = 20
 learning_rate = 2f-3
 epochs = 500
 modes = 24
@@ -156,7 +156,6 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_2Dfno_vc.png"), fig);
     close(fig)
 
-    valid_idx = randperm(nvalid)[1:batch_size]
     Loss_valid[ep] = .5f0 * norm((NN(x_valid |> gpu)) - (y_valid[:, :, 1, :] |> gpu))^2f0 * batch_size/nvalid
 
     loss_train = Loss[1:ep*nbatches]

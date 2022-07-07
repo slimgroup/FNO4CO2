@@ -41,9 +41,9 @@ function (L::SpectralConv2d)(x::AbstractArray{Float32})
     modes1 = size(L.weights1,1)
     modes2 = size(L.weights1,2)
     out_ft = cat(cat(compl_mul2d(x_ft[1:modes1, 1:modes2,:,:], L.weights1),
-                0f0im .* view(x_ft, 1:modes1, 1:size(x_ft,2)-2*modes2, :, :),
+                zeros(ComplexF32, modes1, size(x_ft,2)-2*modes2, size(x_ft,3), size(x_ft,4)),
                 compl_mul2d(x_ft[1:modes1, end-modes2+1:end,:,:], L.weights2),dims=2),
-                0f0im .* view(x_ft, 1:size(x_ft,1)-modes1, :, :, :),dims=1)
+                zeros(ComplexF32, size(x_ft,1)-modes1, size(x_ft,2), size(x_ft,3), size(x_ft,4)),dims=1)
     x = irfft(out_ft, size(x,1),[1,2])
 end
 
@@ -78,10 +78,10 @@ function SimpleBlock2d(modes1::Integer, modes2::Integer, width::Integer, in_chan
         Conv((1, 1), width=>width),
         Conv((1, 1), width=>width),
         Conv((1, 1), width=>width),
-        BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
-        BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
-        BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
-        BatchNorm(width, identity; ϵ=1.0f-5, momentum=.1f0),
+        BatchNorm(width, identity; ϵ=1f-5, momentum=1f-1),
+        BatchNorm(width, identity; ϵ=1f-5, momentum=1f-1),
+        BatchNorm(width, identity; ϵ=1f-5, momentum=1f-1),
+        BatchNorm(width, identity; ϵ=1f-5, momentum=1f-1),
         Conv((1, 1), width=>mid_channels),
         Conv((1, 1), mid_channels=>out_channels)
     )
