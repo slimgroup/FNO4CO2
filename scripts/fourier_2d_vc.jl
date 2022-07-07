@@ -47,7 +47,7 @@ model_base = read(input["model-base"])[:,:,1];
 models = read(input["models"]);
 
 ## network structure
-batch_size = 32
+batch_size = 10
 learning_rate = 2f-3
 epochs = 500
 modes = 24
