@@ -35,12 +35,7 @@ end
 perm = matread(perm_path)["perm"];
 conc = matread(conc_path)["conc"];
 
-## shuffle the dataset
 nsamples = size(perm, 3)
-shuffle = randperm(nsamples)
-
-perm = perm[:,:,shuffle];
-conc = conc[:,:,:,shuffle];
 
 ntrain = Int(round(0.8 * nsamples))
 nvalid = Int(round(0.1 * nsamples))
@@ -180,9 +175,9 @@ for ep = 1:epochs
     close(fig);
 
     NN_save = NN |> cpu
-    w_save = params(NN_save)    
+    w_save = Flux.params(NN_save)    
 
-    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid shuffle
+    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid
     @tagsave(
         datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
         param_dict;
@@ -194,7 +189,7 @@ end
 NN_save = NN |> cpu
 w_save = params(NN_save)
 
-final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid shuffle
+final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid
 
 @tagsave(
     datadir(sim_name, savename(final_dict, "jld2"; digits=6)),

@@ -47,9 +47,9 @@ model_base = read(input["model-base"])[:,:,1];
 models = read(input["models"]);
 
 ## network structure
-batch_size = 20
+batch_size = 15
 learning_rate = 2f-3
-epochs = 500
+epochs = 5000
 modes = 24
 width = 32
 
@@ -78,7 +78,7 @@ Flux.trainmode!(NN, true)
 w = Flux.params(NN)
 
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
-nbatches = Int(ntrain/batch_size)
+nbatches = Int(round(ntrain/batch_size))
 
 Loss = zeros(Float32,epochs*nbatches)
 Loss_valid = zeros(Float32, epochs)
@@ -101,7 +101,7 @@ plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 for ep = 1:epochs
 
     Base.flush(Base.stdout)
-    idx_e = reshape(randperm(ntrain), batch_size, nbatches)
+    idx_e = reshape(randperm(batch_size*nbatches), batch_size, nbatches)
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
@@ -128,7 +128,7 @@ for ep = 1:epochs
     fig = figure(figsize=(16, 12))
 
     subplot(3,2,1)
-    plot_velocity(x_plot[:,:,1,1], (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="Blues"); colorbar();
+    plot_velocity(models[:,:,ntrain+1], (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="Blues"); colorbar();
     
     subplot(3,2,2)
     plot_simage(y_predict[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted continued RTM"); colorbar();
@@ -179,7 +179,7 @@ for ep = 1:epochs
     close(fig);
 
     NN_save = NN |> cpu
-    w_save = params(NN_save)    
+    w_save = Flux.params(NN_save)    
 
     param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid loss_train loss_valid nsamples
     @tagsave(
