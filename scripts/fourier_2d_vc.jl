@@ -101,7 +101,7 @@ plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 for ep = 1:epochs
 
     Base.flush(Base.stdout)
-    idx_e = reshape(randperm(batch_size*nbatches), batch_size, nbatches)
+    idx_e = reshape(randperm(ntrain)[1:batch_size*nbatches], batch_size, nbatches)
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
