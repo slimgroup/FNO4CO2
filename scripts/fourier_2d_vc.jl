@@ -115,14 +115,14 @@ for ep = 1:epochs
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
-        x = x_train[:, :, idx_e[:,b]]
+        x = tensorize(x_train[:, :, idx_e[:,b]], grid, AN)
         y = y_train[:, :, idx_e[:,b]]
         if gpu_flag
             x = x |> gpu
             y = y |> gpu
         end
         grads = gradient(w) do
-            global loss = norm(NN(tensorize(x, grid, AN))-y)^2f0
+            global loss = norm(NN(x)-y)^2f0
             return loss
         end
         Loss[(ep-1)*nbatches+b] = loss
