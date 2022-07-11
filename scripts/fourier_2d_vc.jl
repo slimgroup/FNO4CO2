@@ -47,7 +47,7 @@ model_base = read(input["model-base"])[:,:,1];
 models = read(input["models"]);
 
 ## network structure
-batch_size = 15
+batch_size = 12
 learning_rate = 2f-3
 epochs = 5000
 modes = 24
@@ -78,7 +78,7 @@ Flux.trainmode!(NN, true)
 w = Flux.params(NN)
 
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
-nbatches = Int(round(ntrain/batch_size))
+nbatches = Int(floor(ntrain/batch_size))
 
 Loss = zeros(Float32,epochs*nbatches)
 Loss_valid = zeros(Float32, epochs)
