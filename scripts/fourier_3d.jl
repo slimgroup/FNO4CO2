@@ -43,7 +43,7 @@ nvalid = Int(round(0.1 * nsamples))
 batch_size = 2
 learning_rate = 1f-4
 
-epochs = 200
+epochs = 1000
 
 modes = 4
 width = 20
