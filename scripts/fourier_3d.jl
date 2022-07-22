@@ -37,8 +37,8 @@ conc = matread(conc_path)["conc"];
 
 nsamples = size(perm, 3)
 
-ntrain = Int(round(0.8 * nsamples))
-nvalid = Int(round(0.1 * nsamples))
+ntrain = 1000
+nvalid = 100
 
 batch_size = 2
 learning_rate = 1f-4
@@ -91,7 +91,7 @@ y_plot = y_valid[:, :, :, 1:1]
 # Define result directory
 
 sim_name = "3D_FNO"
-exp_name = "2phaseflow_extenddataset"
+exp_name = "2phaseflow"
 
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
