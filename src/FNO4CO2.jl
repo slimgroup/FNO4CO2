@@ -10,14 +10,9 @@ using FFTW
 using InvertibleNetworks:ActNorm
 using CUDA
 
-try
-    @assert ENV["FNO4CO2GPU"] == "1"
-    CUDA.device()
-    global gpu_flag=true
-    @info "using GPU for FNO4CO2"
-catch e
-    global gpu_flag=false
-    @info "using CPU for FNO4CO2"
+function __init__()
+	global gpu_flag = parse(Bool, get(ENV, "FNO4CO2GPU", 1))
+	@info "FNO4CO2 is using " * (gpu_flag ? "GPU" : "CPU")
 end
 
 # Utilities.

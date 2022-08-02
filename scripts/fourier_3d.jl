@@ -151,8 +151,11 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
     close(fig)
 
+    NN_save = NN |> cpu
+    w_save = Flux.params(NN_save)   
+
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = norm(relu01(NN(x_valid[:, :, :, :, valid_idx] |> gpu)) - (y_valid[:, :, :, valid_idx] |> gpu))/norm(y_valid[:, :, :, valid_idx])
+    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - (y_valid[:, :, :, valid_idx] |> gpu))/norm(y_valid[:, :, :, valid_idx])
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
@@ -172,10 +175,7 @@ for ep = 1:epochs
     legend(["training", "validation"])
     tight_layout();
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
-    close(fig);
-
-    NN_save = NN |> cpu
-    w_save = Flux.params(NN_save)    
+    close(fig); 
 
     param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid
     @tagsave(
