@@ -58,8 +58,7 @@ survey_indices = Int.(round.(range(1, stop=22, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
 # initial x
-x_init = 20f0 * ones(Float32, n);
-x_init[:,25:36] .= 120f0;
+x_init = mean(perm[:,:,1:ntrain],dims=3)[:,:,1];
 x = deepcopy(x_init);
 @time y_init = relu01(NN(perm_to_tensor(x, grid, AN)));
 
