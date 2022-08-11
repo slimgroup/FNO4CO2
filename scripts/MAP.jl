@@ -15,7 +15,7 @@ using InvertibleNetworks
 Random.seed!(3)
 
 # load the FNO network
-JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
+JLD2.@load "../data/3D_FNO/batch_size=2_dt=0.02_ep=300_epochs=1000_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
 NN = deepcopy(NN_save);
 Flux.testmode!(NN, true);
 
@@ -30,7 +30,7 @@ end
 
 # forward to set up splitting, take the reverse for Asim formulation
 G(zeros(Float32,n[1],n[2],1,1));
-G1 = InvertNetRev(G);
+G1 = reverse(G);
 
 # Define raw data directory
 mkpath(datadir("training-data"))

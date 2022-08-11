@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.ADCME]]
@@ -652,9 +652,9 @@ version = "0.1.7"
 
 [[deps.InvertibleNetworks]]
 deps = ["CUDA", "ChainRulesCore", "Flux", "JOLI", "LinearAlgebra", "NNlib", "Random", "Statistics", "Test", "Wavelets"]
-git-tree-sha1 = "62c36124be4b916bd7179402b7bb942ca10a70eb"
+git-tree-sha1 = "a504ebb6aa2d69cc513ed89e7177d4010880da47"
 repo-rev = "compare-blocks"
-repo-url = "https://github.com/ziyiyin97/InvertibleNetworks.jl.git"
+repo-url = "https://github.com/ziyiyin97/InvertibleNetworks.jl"
 uuid = "b7115f24-5f92-4794-81e8-23b0ddb121d3"
 version = "2.0.2"
 

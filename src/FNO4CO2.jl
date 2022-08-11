@@ -21,7 +21,4 @@ include("./utils.jl")
 # FNO model.
 include("./FNOstruct.jl")
 
-# sorry but there are currently some hacks
-include("./hack.jl")
-
 end
