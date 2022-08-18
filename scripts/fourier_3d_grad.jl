@@ -16,7 +16,7 @@ Random.seed!(3)
 proj = false
 
 # load the network
-JLD2.@load "../data/3D_FNO/batch_size=1_dt=0.02_ep=200_epochs=200_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
+JLD2.@load "../data/3D_FNO/batch_size=2_dt=0.02_ep=300_epochs=1000_learning_rate=0.0001_modes=4_nt=51_ntrain=1000_nvalid=100_s=1_width=20.jld2";
 NN = deepcopy(NN_save);
 Flux.testmode!(NN, true);
 
@@ -53,6 +53,7 @@ yobs = permutedims(y_true[survey_indices,:,:,1:1],[2,3,1,4]); # ground truth CO2
 # initial x
 x = 20f0 * ones(Float32, n);
 x[:,25:36] .= 120f0;
+x = mean(perm, dims=3)[:,:,1];
 x_init = deepcopy(x);
 @time y_init = relu01(NN(perm_to_tensor(x, grid, AN)));
 

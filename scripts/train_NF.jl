@@ -11,6 +11,16 @@ using CUDA
 using PyPlot
 using Distributions
 
+# Define raw data directory
+mkpath(datadir("training-data"))
+perm_path = datadir("training-data", "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
+
+# Download the dataset into the data directory if it does not exist
+if ~isfile(perm_path)
+    run(`wget https://www.dropbox.com/s/xy36bvoz6iqau60/'
+        'cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2 -q -O $perm_path`)
+end
+
 JLD2.@load "../data/training-data/cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2"
 
 function z_shape_simple(G, ZX_test)
