@@ -184,7 +184,7 @@ save_path = datadir(sim_name, exp_name)
 niterations = 100
 
 # batchsize in wave equation, i.e. in each iteration the number of sources for each vintage to compute the gradient
-nssample = 8
+nssample = nsrc
 
 ### track iterations
 hisloss = zeros(Float32, niterations+1)
