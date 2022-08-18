@@ -41,7 +41,7 @@ end
 
 # forward to set up splitting, take the reverse for Asim formulation
 G(zeros(Float32,n[1],n[2],1,1));
-G1 = InvertNetRev(G);
+G1 = reverse(G);
 
 # Define raw data directory
 mkpath(datadir("training-data"))
@@ -74,8 +74,7 @@ survey_indices = Int.(round.(range(1, stop=22, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
 # initial z
-x_init = 20f0 * ones(Float32, n);
-x_init[:,25:36] .= 120f0;
+x_init = mean(perm[:,:,1:ntrain],dims=3)[:,:,1];
 z = vec(G(reshape(x_init, n[1], n[2], 1, 1)));
 @time y_init = relu01(NN(perm_to_tensor(G1(z)[:,:,1,1], grid, AN)));
 
