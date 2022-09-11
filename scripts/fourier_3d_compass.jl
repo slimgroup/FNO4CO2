@@ -37,9 +37,9 @@ if ~isfile(qgrid_path)
         'qgrid_compass.jld2 -q -O $qgrid_path`)
 end
 
-JLD2.@load perm_path perm
-JLD2.@load conc_path conc
-JLD2.@load qgrid_path qgrid
+JLD2.@load perm_path perm;
+JLD2.@load conc_path conc;
+JLD2.@load qgrid_path qgrid;
 
 nsamples = size(perm, 3)
 
@@ -65,7 +65,7 @@ nt = size(conc,1)
 dt = 1f0/(nt-1)
 
 AN = ActNorm(ntrain)
-AN.forward(reshape(perm[1:s:end,1:s:end,1:ntrain], n[1], n[2], 1, ntrain));
+norm_perm = AN.forward(reshape(perm[1:s:end,1:s:end,1:ntrain], n[1], n[2], 1, ntrain));
 
 y_train = permutedims(conc[1:nt,1:s:end,1:s:end,1:ntrain],[2,3,1,4]);
 y_valid = permutedims(conc[1:nt,1:s:end,1:s:end,ntrain+1:ntrain+nvalid],[2,3,1,4]);
@@ -117,11 +117,11 @@ for ep = 1:epochs
     for (x,q,y) in train_loader
         global iter = iter + 1
         if gpu_flag
-            x = x |> gpu
+            x = cat(perm_to_tensor(x,grid,AN), q[1,1]/n[1] * ones(Float32, n[1], n[2], nt, 1, 1), q[2,1]/n[2] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4) |> gpu
             y = y |> gpu
         end
         grads = gradient(w) do
-            global loss = norm(relu01(NN(cat(perm_to_tensor(x,grid,AN), q[1,1] * ones(Float32, n[1], n[2], nt, 1, 1), q[2,1] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))-y)/norm(y)
+            global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
         end
         Loss[iter] = loss
@@ -133,7 +133,7 @@ for ep = 1:epochs
 
     Flux.testmode!(NN, true)
 
-    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_plot[1,1] * ones(Float32, n[1], n[2], nt, 1, 1), q_plot[2,1] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))
+    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_plot[1,1]/n[1] * ones(Float32, n[1], n[2], nt, 1, 1), q_plot[2,1]/n[2] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))
 
     fig, ax = subplots(4,5,figsize=(20, 12))
 
@@ -164,7 +164,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     for (x,q,y) in valid_loader
-        Loss_valid[ep] = norm(relu01(NN(cat(perm_to_tensor(x,grid,AN), q[1,1] * ones(Float32, n[1], n[2], nt, 1, 1), q[2,1] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))-y)/norm(y)
+        Loss_valid[ep] = norm(relu01(NN(cat(perm_to_tensor(x,grid,AN), q[1,1]/n[1] * ones(Float32, n[1], n[2], nt, 1, 1), q[2,1]/n[2] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))-y)/norm(y)
         break
     end
 
