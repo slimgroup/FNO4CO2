@@ -163,7 +163,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     for (x,q,y) in valid_loader
-        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), q[1,1]/n[1] * ones(Float32, n[1], n[2], nt, 1, 1), q[2,1]/n[2] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))-y)/norm(y)
+        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, 1), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))-y)/norm(y)
         break
     end
 
