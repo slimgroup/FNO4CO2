@@ -49,7 +49,7 @@ nvalid = 50
 batch_size = 1
 learning_rate = 1f-4
 
-epochs = 1000
+epochs = 500
 
 modes = 4
 width = 20
@@ -131,9 +131,8 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:iter, iter)])
     end
 
-    Flux.testmode!(NN, true)
-
-    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_plot[1,1]/n[1] * ones(Float32, n[1], n[2], nt, 1, 1), q_plot[2,1]/n[2] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))
+    Flux.testmode!(NN, true);
+    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), Float32(q_plot[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, 1), Float32(q_plot[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)|>gpu))|>cpu
 
     fig, ax = subplots(4,5,figsize=(20, 12))
 
@@ -200,7 +199,7 @@ end
 NN_save = NN |> cpu;
 w_save = params(NN_save);
 
-final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid;
+final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate s n d nt dt AN ntrain nvalid;
 
 @tagsave(
     datadir(sim_name, savename(final_dict, "jld2"; digits=6)),
