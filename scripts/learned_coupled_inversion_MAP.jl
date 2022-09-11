@@ -74,9 +74,9 @@ survey_indices = Int.(round.(range(1, stop=22, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
 # initial z
-x_init = mean(perm[:,:,1:ntrain],dims=3)[:,:,1];
-z = vec(G(reshape(x_init, n[1], n[2], 1, 1)));
-@time y_init = relu01(NN(perm_to_tensor(G1(z)[:,:,1,1], grid, AN)));
+z = zeros(Float32, prod(n));
+x_init = G1(z)[:,:,1,1];
+@time y_init = relu01(NN(perm_to_tensor(x_init, grid, AN)));
 
 # set up rock physics
 
@@ -109,14 +109,14 @@ ntS = Int(floor(timeS/dtS))+1       # time samples
 ntR = Int(floor(timeR/dtR))+1       # source time samples
 
 # source locations -- half at the left hand side of the model, half on top
-xsrc = convertToCell(vcat(range(d[1],stop=d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
+xsrc = convertToCell(range(d[1],stop=d[1],length=nsrc))
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
-zsrc = convertToCell(vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
+zsrc = convertToCell(range(d[2],stop=(n[2]-1)*d[2],length=nsrc))
 
 # receiver locations -- half at the right hand side of the model, half on top
-xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
+xrec = range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=nrec)
 yrec = 0f0
-zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
+zrec = range(d[2],stop=(n[2]-1)*d[2],length=nrec)
 
 # set up src/rec geometry
 srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
@@ -195,7 +195,7 @@ prog = Progress(niterations)
 λ = 1f0;
 
 ## initial steplength
-α = 1f1;
+α = 1f0;
 
 for iter=1:niterations
 
