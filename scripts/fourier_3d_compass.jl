@@ -49,7 +49,7 @@ nvalid = 50
 batch_size = 20         # effective one
 computational_batch_size = 2 # of samples that still fit on GPU
 grad_accum_iter = batch_size/computational_batch_size   # accumulate these many gradients
-learning_rate = 2f-6
+learning_rate = 2f-4
 
 epochs = 500
 
