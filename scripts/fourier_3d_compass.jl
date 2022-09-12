@@ -47,7 +47,7 @@ ntrain = 1000
 nvalid = 50
 
 batch_size = 2
-learning_rate = 2f-5
+learning_rate = 2f-6
 
 epochs = 500
 
