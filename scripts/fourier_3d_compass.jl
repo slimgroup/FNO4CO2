@@ -80,8 +80,8 @@ x_valid = perm[1:s:end,1:s:end,ntrain+1:ntrain+nvalid];
 qgrid_train = qgrid[:,1:ntrain];
 qgrid_valid = qgrid[:,ntrain+1:ntrain+nvalid];
 
-train_loader = Flux.Data.DataLoader((x_train, qgrid_train, y_train); batchsize = batch_size, shuffle = true)
-valid_loader = Flux.Data.DataLoader((x_valid, qgrid_valid, y_valid); batchsize = batch_size, shuffle = true)
+train_loader = Flux.Data.DataLoader((x_train, qgrid_train, y_train); batchsize = computational_batch_size, shuffle = true)
+valid_loader = Flux.Data.DataLoader((x_valid, qgrid_valid, y_valid); batchsize = computational_batch_size, shuffle = true)
 
 NN = Net3d(modes, width; in_channels=6)
 gpu_flag && (global NN = NN |> gpu)
@@ -90,7 +90,7 @@ Flux.trainmode!(NN, true)
 w = Flux.params(NN)
 
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
-nbatches = Int(floor(ntrain/batch_size))
+nbatches = Int(floor(ntrain/computational_batch_size))
 
 Loss = zeros(Float32,epochs*nbatches)
 Loss_valid = zeros(Float32, epochs)
@@ -118,7 +118,7 @@ for ep = 1:epochs
     Flux.trainmode!(NN, true);
     for (x,q,y) in train_loader
         global iter = iter + 1
-        x = cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, batch_size), dims=4)
+        x = cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), dims=4)
         if gpu_flag
             x = x |> gpu
             y = y |> gpu
@@ -130,7 +130,7 @@ for ep = 1:epochs
         (iter==1) && (global grads_sum = 0f0 .* grads)
         global grads_sum = grads_sum .+ grads
         Loss[iter] = loss
-        if mod(iter, 8) == 0
+        if mod(iter, grad_accum_iter) == 0
             for p in w
                 Flux.Optimise.update!(opt, p, grads_sum[p])
             end
@@ -163,7 +163,7 @@ for ep = 1:epochs
 
     end
     tight_layout()
-    fig_name = @strdict ep batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid
+    fig_name = @strdict ep batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid computational_batch_size
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
     close(fig)
 
@@ -171,7 +171,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     for (x,q,y) in valid_loader
-        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, batch_size), dims=4)))-y)/norm(y)
+        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), dims=4)))-y)/norm(y)
         break
     end
 
@@ -195,7 +195,7 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
     close(fig); 
 
-    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid
+    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs s n d nt dt AN ntrain nvalid loss_train loss_valid computational_batch_size
     @tagsave(
         datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
         param_dict;
@@ -207,7 +207,7 @@ end
 NN_save = NN |> cpu;
 w_save = params(NN_save);
 
-final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate s n d nt dt AN ntrain nvalid;
+final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate s n d nt dt AN ntrain nvalid computational_batch_size;
 
 @tagsave(
     datadir(sim_name, savename(final_dict, "jld2"; digits=6)),
