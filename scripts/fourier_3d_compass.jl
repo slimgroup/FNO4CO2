@@ -124,9 +124,14 @@ for ep = 1:epochs
             global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
         end
+        (iter==1) && (global grads_sum = 0f0 * grads)
+        global grads_sum = grads_sum + grads
         Loss[iter] = loss
-        for p in w
-            Flux.Optimise.update!(opt, p, grads[p])
+        if mod(iter, 8) == 0
+            for p in w
+                Flux.Optimise.update!(opt, p, grads_sum[p])
+            end
+            grads_sum = 0f0 * grads_sum
         end
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:iter, iter)])
     end
