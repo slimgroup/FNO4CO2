@@ -117,7 +117,7 @@ for ep = 1:epochs
     for (x,q,y) in train_loader
         global iter = iter + 1
         if gpu_flag
-            x = cat(perm_to_tensor(x,grid,AN), q[1,1]/n[1] * ones(Float32, n[1], n[2], nt, 1, 1), q[2,1]/n[2] * ones(Float32, n[1], n[2], nt, 1, 1), dims=4) |> gpu
+            x = cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, batch_size), dims=4) |> gpu
             y = y |> gpu
         end
         grads = gradient(w) do
@@ -163,7 +163,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     for (x,q,y) in valid_loader
-        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, 1), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)))-y)/norm(y)
+        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, batch_size), dims=4)))-y)/norm(y)
         break
     end
 
