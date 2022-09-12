@@ -46,12 +46,14 @@ nsamples = size(perm, 3)
 ntrain = 1000
 nvalid = 50
 
-batch_size = 2
+batch_size = 20         # effective one
+computational_batch_size = 2 # of samples that still fit on GPU
+grad_accum_iter = batch_size/computational_batch_size   # accumulate these many gradients
 learning_rate = 2f-6
 
 epochs = 500
 
-modes = 4
+modes = [32, 16, 8]
 width = 20
 
 n = (size(perm, 1), size(perm, 2))
@@ -88,7 +90,7 @@ Flux.trainmode!(NN, true)
 w = Flux.params(NN)
 
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
-nbatches = Int(ntrain/batch_size)
+nbatches = Int(floor(ntrain/batch_size))
 
 Loss = zeros(Float32,epochs*nbatches)
 Loss_valid = zeros(Float32, epochs)
@@ -113,25 +115,26 @@ for ep = 1:epochs
     Base.flush(Base.stdout)
 
     ## update
-    Flux.trainmode!(NN, true)
+    Flux.trainmode!(NN, true);
     for (x,q,y) in train_loader
         global iter = iter + 1
+        x = cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, batch_size), dims=4)
         if gpu_flag
-            x = cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, batch_size), dims=4) |> gpu
+            x = x |> gpu
             y = y |> gpu
         end
         grads = gradient(w) do
             global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
         end
-        (iter==1) && (global grads_sum = 0f0 * grads)
-        global grads_sum = grads_sum + grads
+        (iter==1) && (global grads_sum = 0f0 .* grads)
+        global grads_sum = grads_sum .+ grads
         Loss[iter] = loss
         if mod(iter, 8) == 0
             for p in w
                 Flux.Optimise.update!(opt, p, grads_sum[p])
             end
-            grads_sum = 0f0 * grads_sum
+            grads_sum = 0f0 .* grads_sum
         end
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:iter, iter)])
     end

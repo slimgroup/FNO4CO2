@@ -96,13 +96,13 @@ end
 @Flux.functor Net2d
 
 ### 2D FNO constructor
-function Net2d(modes::Int64, width::Int64; in_channels::Int64=3, out_channels::Int64=1, mid_channels::Int64=128)
+function Net2d(modes::Vector{Int64}, width::Int64; in_channels::Int64=3, out_channels::Int64=1, mid_channels::Int64=128)
     return Net2d(
         Conv((1, 1), in_channels=>width),
-        SpectralConv(width, width, [modes, modes]),
-        SpectralConv(width, width, [modes, modes]),
-        SpectralConv(width, width, [modes, modes]),
-        SpectralConv(width, width, [modes, modes]),
+        SpectralConv(width, width, modes),
+        SpectralConv(width, width, modes),
+        SpectralConv(width, width, modes),
+        SpectralConv(width, width, modes),
         Conv((1, 1), width=>width),
         Conv((1, 1), width=>width),
         Conv((1, 1), width=>width),
@@ -115,6 +115,8 @@ function Net2d(modes::Int64, width::Int64; in_channels::Int64=3, out_channels::I
         Conv((1, 1), mid_channels=>out_channels)
     )
 end
+
+Net2d(modes::Int64, width::Int64; in_channels::Int64=3, out_channels::Int64=1, mid_channels::Int64=128) = Net3d([modes,modes], width; in_channels=in_channels, out_channels=out_channels, mid_channels=mid_channels)
 
 ### 2D FNO forward evaluation
 function (B::Net2d{T})(x::AbstractArray{T,4}) where T
@@ -163,13 +165,13 @@ end
 @Flux.functor Net3d
 
 ### 3D FNO Constructor
-function Net3d(modes::Int64, width::Int64; in_channels::Int64=4, out_channels::Int64=1, mid_channels::Int64=128)
+function Net3d(modes::Vector{Int64}, width::Int64; in_channels::Int64=4, out_channels::Int64=1, mid_channels::Int64=128)
     return Net3d(
         Conv((1, 1, 1), in_channels=>width),
-        SpectralConv(width, width, [modes, modes, modes]),
-        SpectralConv(width, width, [modes, modes, modes]),
-        SpectralConv(width, width, [modes, modes, modes]),
-        SpectralConv(width, width, [modes, modes, modes]),
+        SpectralConv(width, width, modes),
+        SpectralConv(width, width, modes),
+        SpectralConv(width, width, modes),
+        SpectralConv(width, width, modes),
         Conv((1, 1, 1), width=>width),
         Conv((1, 1, 1), width=>width),
         Conv((1, 1, 1), width=>width),
@@ -183,6 +185,8 @@ function Net3d(modes::Int64, width::Int64; in_channels::Int64=4, out_channels::I
     )
     return block
 end
+
+Net3d(modes::Int64, width::Int64; in_channels::Int64=4, out_channels::Int64=1, mid_channels::Int64=128) = Net3d([modes,modes,modes], width; in_channels=in_channels, out_channels=out_channels, mid_channels=mid_channels)
 
 ### 3D FNO forward evaluation
 function (B::Net3d{T})(x::AbstractArray{T,5}) where T
