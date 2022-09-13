@@ -148,7 +148,7 @@ for ep = 1:epochs
     end
 
     Flux.testmode!(NN, true);
-    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_tensorize(q), dims=4)|>gpu))|>cpu
+    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_tensorize(q_plot), dims=4)|>gpu))|>cpu
 
     fig, ax = subplots(4,5,figsize=(20, 12))
 
