@@ -109,7 +109,7 @@ x_plot = x_valid[:, :, 1:1]
 q_plot = qgrid_valid[:,1:1]
 y_plot = y_valid[:, :, :, 1]
 
-function q_tensorize(q::Matrix{Float32})
+function q_tensorize(q::Matrix{Int64})
     q_tensor = zeros(Float32, n[1], n[2], nt, 1, size(q,2));
     for i = 1:size(q,2)
         q_tensor[q[1,i],q[2,i],:,1,i] .= 3f-1       ## q location, injection rate = f-1
