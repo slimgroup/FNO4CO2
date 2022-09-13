@@ -83,7 +83,7 @@ qgrid_valid = qgrid[:,ntrain+1:ntrain+nvalid];
 train_loader = Flux.Data.DataLoader((x_train, qgrid_train, y_train); batchsize = computational_batch_size, shuffle = true)
 valid_loader = Flux.Data.DataLoader((x_valid, qgrid_valid, y_valid); batchsize = computational_batch_size, shuffle = true)
 
-NN = Net3d(modes, width; in_channels=6)
+NN = Net3d(modes, width; in_channels=5)
 gpu_flag && (global NN = NN |> gpu)
 
 Flux.trainmode!(NN, true)
@@ -109,6 +109,14 @@ x_plot = x_valid[:, :, 1:1]
 q_plot = qgrid_valid[:,1:1]
 y_plot = y_valid[:, :, :, 1]
 
+function q_tensorize(q::Matrix{Float32})
+    q_tensor = zeros(Float32, n[1], n[2], nt, 1, size(q,2));
+    for i = 1:size(q,2)
+        q_tensor[q[1,i],q[2,i],:,1,i] .= 3f-1       ## q location, injection rate = f-1
+    end
+    return q_tensor
+end
+
 ## training
 iter = 0
 for ep = 1:epochs
@@ -118,7 +126,7 @@ for ep = 1:epochs
     Flux.trainmode!(NN, true);
     for (x,q,y) in train_loader
         global iter = iter + 1
-        x = cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), dims=4)
+        x = cat(perm_to_tensor(x,grid,AN), q_tensorize(q), dims=4)
         if gpu_flag
             x = x |> gpu
             y = y |> gpu
@@ -140,7 +148,7 @@ for ep = 1:epochs
     end
 
     Flux.testmode!(NN, true);
-    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), Float32(q_plot[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, 1), Float32(q_plot[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, 1), dims=4)|>gpu))|>cpu
+    y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_tensorize(q), dims=4)|>gpu))|>cpu
 
     fig, ax = subplots(4,5,figsize=(20, 12))
 
@@ -171,7 +179,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     for (x,q,y) in valid_loader
-        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), Float32(q[1,1]/n[1]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), Float32(q[2,1]/n[2]) * ones(Float32, n[1], n[2], nt, 1, computational_batch_size), dims=4)))-y)/norm(y)
+        Loss_valid[ep] = norm(relu01(NN_save(cat(perm_to_tensor(x,grid,AN), q_tensorize(q), dims=4)))-y)/norm(y)
         break
     end
 
