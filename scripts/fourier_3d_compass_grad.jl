@@ -69,8 +69,7 @@ nt = size(conc,1)
 #dt = 20f0    # dt in day
 dt = 1f0/(nt-1)
 
-AN = ActNorm(ntrain)
-norm_perm = AN.forward(reshape(perm[1:s:end,1:s:end,1:ntrain], n[1], n[2], 1, ntrain));
+JLD2.@load "../data/3D_FNO/batch_size=20_computational_batch_size=2_dt=0.05_ep=150_epochs=500_learning_rate=0.0002_nt=21_ntrain=1000_nvalid=50_s=1_width=20.jld2";
 
 y_train = permutedims(conc[1:nt,1:s:end,1:s:end,1:ntrain],[2,3,1,4]);
 y_valid = permutedims(conc[1:nt,1:s:end,1:s:end,ntrain+1:ntrain+nvalid],[2,3,1,4]);
@@ -86,7 +85,6 @@ qgrid_valid = qgrid[:,ntrain+1:ntrain+nvalid];
 train_loader = Flux.Data.DataLoader((x_train, qgrid_train, y_train); batchsize = computational_batch_size, shuffle = true);
 valid_loader = Flux.Data.DataLoader((x_valid, qgrid_valid, y_valid); batchsize = computational_batch_size, shuffle = true);
 
-NN = Net3d(modes, width; in_channels=5);
 # load the network
 JLD2.@load "../data/3D_FNO/batch_size=20_computational_batch_size=2_dt=0.05_ep=150_epochs=500_learning_rate=0.0002_nt=21_ntrain=1000_nvalid=50_s=1_width=20.jld2";
 NN = deepcopy(NN_save);
@@ -118,11 +116,11 @@ function q_tensorize(q::Matrix{Int64})
     for i = 1:size(q,2)
         q_tensor[q[1,i],q[2,i],:,1,i] .= 3f-1       ## q location, injection rate = 3f-1
     end
-    return q_tensor
+    return q_tensor |> gpu
 end
 q_tensorize(q::Vector{Int64}) = q_tensorize(reshape(q, :, 1))
 
-@time y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_tensorize(q_plot), dims=4)));
+@time y_predict = relu01(NN(cat(perm_to_tensor(x_plot|>gpu,grid,AN|>gpu), q_tensorize(q_plot), dims=4)))|>cpu;
 
 function plotK(K, ax)
     p1 = pycall(ma.masked_greater, Any, K, 50)
@@ -139,7 +137,6 @@ fig, ax = subplots(4,5,figsize=(20, 12))
 for i = 1:5
     ax[1, i][:axis]("off")
     plotK(x_plot[:,:,1]', ax[1,i])
-    #ax[1, i].imshow(x_plot[:,:,1]')
     ax[1, i].set_title("x")
 
     ax[2, i][:axis]("off")
@@ -162,12 +159,14 @@ tight_layout()
 x_true = perm[:, :, end];
 q_true = qgrid[:,end];
 y_true = permutedims(conc[:, :, :, end], [2,3,1]);
-x = mean(perm[:,:,1:ntrain], dims=3)[:,:,1];
-x_init = deepcopy(x);
+gpu_flag && (global y_true = y_true |> gpu);
+x = mean(perm[:,:,1:ntrain], dims=3)[:,:,1] |> gpu;
+gpu_flag && (global x = x |> gpu);
+x_init = deepcopy(x) |> cpu;
 
-qtensor = q_tensorize(q_true)
+qtensor = q_tensorize(q_true);
 function S(x)
-    return relu01(NN(cat(perm_to_tensor(x,grid,AN), qtensor, dims=4)));
+    return relu01(NN(cat(perm_to_tensor(x,grid,AN|>gpu), qtensor, dims=4)));
 end
 
 # function value
@@ -225,8 +224,6 @@ for j=1:niterations
 end
 
 y_predict = S(x);
-
-print(stop)
 
 ## compute true and plot
 SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
