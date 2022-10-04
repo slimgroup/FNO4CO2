@@ -225,27 +225,61 @@ end
 
 y_predict = S(x);
 
-## compute true and plot
-SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
-fig = figure(figsize=(20,12));
-subplot(2,2,1);
-imshow(x',vmin=20,vmax=120);title("inversion by NN, $(niterations) iter");colorbar();
-subplot(2,2,2);
-imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
-subplot(2,2,3);
-imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
-subplot(2,2,4);
-imshow(5*abs.(x_true'-x'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
-suptitle("MLE (no prior)")
-tight_layout()
 
 sim_name = "FNOinversion"
-exp_name = "2phaseflow"
+exp_name = "2phaseflow-compass"
 
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
-fig_name = @strdict proj nv niterations α
+fig_name = @strdict niterations α
+## compute true and plot
+SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
+fig, ax = subplots(2,2,figsize=(20, 12))
+
+ax[1, 1][:axis]("off")
+ax[1,1].imshow(x', vmin=0f0, vmax=300f0)
+ax[1, 1].set_title("inversion by NN, $(niterations) iter")
+
+ax[1, 2][:axis]("off")
+ax[1,2].imshow(x_true', vmin=0f0, vmax=300f0)
+ax[1, 2].set_title("GT permeability")
+
+ax[2, 1][:axis]("off")
+ax[2,1].imshow(x_init', vmin=0f0, vmax=300f0)
+ax[2, 1].set_title("initial permeability")
+
+ax[2, 2][:axis]("off")
+ax[2,2].imshow(5*abs.(x'-x_init'), vmin=0f0, vmax=300f0)
+ax[2, 2].set_title("5X Update")
+
+suptitle("MLE (no prior)")
+tight_layout()
+safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_update.png"), fig);
+
+## compute true and plot
+SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
+fig, ax = subplots(2,2,figsize=(20, 12))
+
+ax[1, 1][:axis]("off")
+plotK(x', ax[1,1])
+ax[1, 1].set_title("inversion by NN, $(niterations) iter")
+
+ax[1, 2][:axis]("off")
+plotK(x_true[:,:,1]', ax[1,2])
+ax[1, 2].set_title("GT permeability")
+
+ax[2, 1][:axis]("off")
+plotK(x_init', ax[2,1])
+ax[2, 1].set_title("initial permeability")
+
+ax[2, 2][:axis]("off")
+plotK(5*abs.(x_true'-x'), ax[2,2])
+ax[2, 2].set_title("5X error, SNR=$SNR")
+
+suptitle("MLE (no prior)")
+tight_layout()
+
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_inv.png"), fig);
 
 
@@ -257,24 +291,26 @@ tight_layout()
 
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
 
+y_init = S(x_init);
 ## data fitting
 fig = figure(figsize=(20,12));
 for i = 1:5
     subplot(4,5,i);
-    imshow(y_init[:,:,10*i+1]', vmin=0, vmax=1);
-    title("initial prediction at snapshot $(10*i+1)")
+    imshow(y_init[:,:,4*i+1]', vmin=0, vmax=1);
+    title("initial prediction at snapshot $(4*i+1)")
     subplot(4,5,i+5);
-    imshow(y_true[:,:,10*i+1]', vmin=0, vmax=1);
-    title("true at snapshot $(10*i+1)")
+    imshow(y_true[:,:,4*i+1]', vmin=0, vmax=1);
+    title("true at snapshot $(4*i+1)")
     subplot(4,5,i+10);
-    imshow(y_predict[:,:,10*i+1]', vmin=0, vmax=1);
-    title("predict at snapshot $(10*i+1)")
+    imshow(y_predict[:,:,4*i+1]', vmin=0, vmax=1);
+    title("predict at snapshot $(4*i+1)")
     subplot(4,5,i+15);
-    imshow(5*abs.(yobs[:,:,10*i+1]'-y_predict[:,:,10*i+1]'), vmin=0, vmax=1);
-    title("5X diff at snapshot $(10*i+1)")
+    imshow(5*abs.(y_true[:,:,4*i+1]'-y_predict[:,:,4*i+1]'), vmin=0, vmax=1);
+    title("5X diff at snapshot $(4*i+1)")
 end
 suptitle("MLE (no prior)")
 tight_layout()
+
 safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
 
 
