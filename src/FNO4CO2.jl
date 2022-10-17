@@ -11,7 +11,7 @@ using InvertibleNetworks:ActNorm
 using CUDA
 
 function __init__()
-	global gpu_flag = parse(Bool, get(ENV, "FNO4CO2GPU", 1))
+	global gpu_flag = get(ENV, "FNO4CO2GPU", 0) == 1
 	@info "FNO4CO2 is using " * (gpu_flag ? "GPU" : "CPU")
 end
 

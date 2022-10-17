@@ -1,5 +1,7 @@
 # FNO4CO2
 
+[![][license-img]][license-status] [![][zenodo-img]][zenodo-status]
+
 This repository contains the implementation of learned coupled inversion framework and the numerical experiments in [Learned coupled inversion for carbon sequestration monitoring and forecasting with Fourier neural operators](https://arxiv.org/abs/2203.14396), accepted by the International Meeting for Applied Geoscience & Energy 2022.
 
 The aforementioned framework entails a re-implementation of Fourier neural operators from [Fourier Neural Operator for Parameter Partial Differential Equations](https://arxiv.org/abs/2010.08895) authored by Zongyi Li et al. The [original repository](https://github.com/zongyi-li/fourier_neural_operator) is in python.
@@ -57,3 +59,8 @@ This research was carried out with the support of Georgia Research Alliance and 
 ## Author
 
 Ziyi (Francis) Yin, [ziyi.yin@gatech.edu](mailto:ziyi.yin@gatech.edu)
+
+[license-status]:LICENSE
+[zenodo-status]:https://doi.org/10.5281/zenodo.6799258
+[license-img]:http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat?style=plastic
+[zenodo-img]:https://zenodo.org/badge/DOI/10.5281/zenodo.3878711.svg?style=plastic
