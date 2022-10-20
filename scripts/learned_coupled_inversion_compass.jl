@@ -73,11 +73,6 @@ exp_name = "2phaseflow-compass"
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
-# plot figure
-x_plot = x_valid[:, :, 1:1];
-q_plot = qgrid_valid[:,1:1];
-y_plot = y_valid[:, :, :, 1];
-
 function q_tensorize(q::Matrix{Int64})
     q_tensor = zeros(Float32, n[1], n[2], nt, 1, size(q,2));
     for i = 1:size(q,2)
@@ -86,8 +81,6 @@ function q_tensorize(q::Matrix{Int64})
     return q_tensor
 end
 q_tensorize(q::Vector{Int64}) = q_tensorize(reshape(q, :, 1))
-
-@time y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_tensorize(q_plot), dims=4)));
 
 # take a test sample
 x_true = perm[:,:,ntrain+nvalid+1];  # take a test sample
@@ -101,8 +94,9 @@ sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these 
 # initial x
 x_init = mean(perm[:,:,1:ntrain],dims=3)[:,:,1];
 q_true = qgrid[:,ntrain+nvalid+1:ntrain+nvalid+1];
+qtensor = q_tensorize(q_true);
 x = deepcopy(x_init);
-@time y_init = relu01(NN(cat(perm_to_tensor(x_init,grid,AN), q_tensorize(q_true), dims=4)));
+@time y_init = relu01(NN(cat(perm_to_tensor(x_init,grid,AN), qtensor, dims=4)));
 
 # set up rock physics
 
@@ -193,7 +187,7 @@ fval = Inf32
 α = 1f1
 
 ### fluid-flow physics (FNO)
-S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(cat(perm_to_tensor(x, grid, AN), q_tensorize(q_true), dims=4)))[:,:,survey_indices,1], [3,1,2])
+S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(cat(perm_to_tensor(x, grid, AN), qtensor, dims=4)))[:,:,survey_indices,1], [3,1,2])
 
 ### rock physics
 R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi; bulk_min = 5f10)[1]
