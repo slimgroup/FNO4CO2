@@ -83,11 +83,11 @@ function q_tensorize(q::Matrix{Int64})
     for i = 1:size(q,2)
         q_tensor[q[1,i],q[2,i],:,1,i] .= 3f-1       ## q location, injection rate = 3f-1
     end
-    return q_tensor |> gpu
+    return q_tensor
 end
 q_tensorize(q::Vector{Int64}) = q_tensorize(reshape(q, :, 1))
 
-@time y_predict = relu01(NN(cat(perm_to_tensor(x_plot|>gpu,grid,AN|>gpu), q_tensorize(q_plot), dims=4)))|>cpu;
+@time y_predict = relu01(NN(cat(perm_to_tensor(x_plot,grid,AN), q_tensorize(q_plot), dims=4)));
 
 # take a test sample
 x_true = perm[:,:,ntrain+nvalid+1];  # take a test sample
