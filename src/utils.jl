@@ -1,4 +1,4 @@
-export relu01, perm_to_tensor, gen_grid, jitter
+export relu01, perm_to_tensor, gen_grid, jitter, Patchy
 
 ##### constrain to 0-1 #####
 relu01(x::AbstractArray{Float32}) = 1f0.-relu.(1f0.-relu.(x))
@@ -81,4 +81,10 @@ function Patchy(sw::AbstractMatrix{T}, vp::AbstractMatrix{T}, rho::AbstractMatri
     Vp_new = sqrt.((bulk_new+4f0/3f0*shear_sat1)./rho_new)
     return Vp_new, rho_new
 
+end
+
+function Patchy(sw::AbstractArray{T, 3}, vp::AbstractMatrix{T}, rho::AbstractMatrix{T}, phi::AbstractMatrix{T}; bulk_min = 36.6f9, bulk_fl1 = 2.735f9, bulk_fl2 = 0.125f9, ρw = 501.9f0, ρo = 1053.0f0) where T
+
+    stack = [Patchy(sw[i,:,:], vp, rho, phi; bulk_min=bulk_min, bulk_fl1=bulk_fl1, bulk_fl2=bulk_fl2, ρw = ρw, ρo=ρo) for i = 1:size(sw,1)]
+    return [stack[i][1] for i = 1:size(sw,1)], [stack[i][2] for i = 1:size(sw,1)]
 end
