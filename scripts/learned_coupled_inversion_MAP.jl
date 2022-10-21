@@ -162,7 +162,7 @@ noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
 d_obs = d_obs + noise_
 
 # ADAM-W algorithm
-learning_rate = 1f0
+learning_rate = 1f-1
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
 ### fluid-flow physics (FNO)
@@ -261,11 +261,11 @@ for iter=1:niterations
     ## loss
     fig = figure(figsize=(20,12));
     subplot(3,1,1);
-    plot(hisloss[1:iter+1]);title("loss=$(hisloss[iter+1])");
+    plot(hisloss[1:iter]);title("loss=$(hisloss[iter])");
     subplot(3,1,2);
-    plot(hismisfit[1:iter+1]);title("misfit=$(hismisfit[iter+1])");
+    plot(hismisfit[1:iter]);title("misfit=$(hismisfit[iter])");
     subplot(3,1,3);
-    plot(hisprior[1:iter+1]);title("prior=$(hisprior[iter+1])");
+    plot(hisprior[1:iter]);title("prior=$(hisprior[iter])");
     suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_loss.png"), fig);
