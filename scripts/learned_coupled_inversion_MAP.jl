@@ -222,12 +222,11 @@ for iter=1:niterations
     for p in θ
         Flux.Optimise.update!(opt, p, grads[p])
     end
-    ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
 
     hisloss[iter] = fval
     hismisfit[iter] = misfit
     hisprior[iter] = prior
-    
+
     y_predict = S(G1(z)[:,:,1,1]);
 
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
