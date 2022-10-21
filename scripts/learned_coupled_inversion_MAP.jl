@@ -161,10 +161,9 @@ noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
 σ = Float32.(norm(noise_)/sqrt(length(noise_)))
 d_obs = d_obs + noise_
 
-# BackTracking linesearch algorithm
-ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
-fval = Inf32
-α = 1f1
+# ADAM-W algorithm
+learning_rate = 1f0
+opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
 ### fluid-flow physics (FNO)
 S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(perm_to_tensor(x, grid, AN)))[:,:,survey_indices,1], [3,1,2])
@@ -182,7 +181,7 @@ save_path = datadir(sim_name, exp_name)
 niterations = 100
 
 # batchsize in wave equation, i.e. in each iteration the number of sources for each vintage to compute the gradient
-nssample = nsrc
+nssample = 4
 
 ### track iterations
 hisloss = zeros(Float32, niterations+1)
@@ -193,8 +192,7 @@ prog = Progress(niterations)
 ## weighting
 λ = 1f0;
 
-## initial steplength
-α = 1f0;
+θ = Flux.params(z)
 
 for iter=1:niterations
 
@@ -220,49 +218,16 @@ for iter=1:niterations
     end
 
     ## AD by Flux
-    @time g = gradient(()->f(z), Flux.params(z)).grads[z]
+    @time grads = gradient(()->f(z), θ)
+    for p in θ
+        Flux.Optimise.update!(opt, p, grads[p])
+    end
+    ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
+
+    hisloss[iter] = fval
+    hismisfit[iter] = misfit
+    hisprior[iter] = prior
     
-    ## initial misfit
-    if iter == 1
-        hisloss[1] = fval
-        hismisfit[1] = misfit
-        hisprior[1] = prior
-    end
-
-    # (normalized) update direction
-    p = -g/norm(g, Inf)
-
-    # linesearch
-    function ϕ(α)::Float32
-        try
-            global fval = f(z + α * p)
-        catch e
-            @assert typeof(e) == DomainError
-            global fval = Inf32
-        end
-        return fval
-    end
-
-    try
-        global step, fval = ls(ϕ, α, fval, dot(g, p))
-    catch e
-        println("linesearch failed at iteration: ",j)
-        global niterations = j
-        hisloss[j+1] = fval
-        hismisfit[j+1] = misfit
-        hisprior[j+1] = prior
-        break
-    end
-
-    global α = 1.2f0 * step
-
-    hisloss[iter+1] = fval
-    hismisfit[iter+1] = misfit
-    hisprior[iter+1] = prior
-
-    # Update model and bound projection
-    global z .+= step .* p
-
     y_predict = S(G1(z)[:,:,1,1]);
 
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
