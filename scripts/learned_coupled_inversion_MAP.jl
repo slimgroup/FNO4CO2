@@ -232,7 +232,7 @@ for iter=1:niterations
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict iter snr nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior
+    save_dict = @strdict iter snr nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior learning_rate
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -240,7 +240,7 @@ for iter=1:niterations
     )
 
     ## save figure
-    fig_name = @strdict iter snr nssample λ niterations nv nsrc nrec survey_indices
+    fig_name = @strdict iter snr nssample λ niterations nv nsrc nrec survey_indices learning_rate
 
     ## compute true and plot
     SNR = -2f1 * log10(norm(x_true-G1(z)[:,:,1,1])/norm(x_true))
