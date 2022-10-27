@@ -42,11 +42,18 @@ The repository currently includes several scripts.
 If you find this software useful in your research, we would appreciate it if you cite:
 
 ```bibtex
-@article{yin2022learned,
-  title={Learned coupled inversion for carbon sequestration monitoring and forecasting with Fourier neural operators},
-  author={Yin, Ziyi and Siahkoohi, Ali and Louboutin, Mathias and Herrmann, Felix J},
-  journal={arXiv preprint arXiv:2203.14396},
-  year={2022}
+@conference {yin2022SEGlci,
+	title = {Learned coupled inversion for carbon sequestration monitoring and forecasting with Fourier neural operators},
+	booktitle = {International Meeting for Applied Geoscience and Energy Expanded Abstracts},
+	year = {2022},
+	note = {(IMAGE, Houston)},
+	month = {05},
+	keywords = {CCS, deep learning, Fourier neural operators, inversion, machine learning, multiphysics, SEG, time-lapse},
+	doi = {10.1190/image2022-3722848.1},
+	url = {https://slim.gatech.edu/Publications/Public/Conferences/SEG/2022/yin2022SEGlci/paper.html},
+	presentation = {https://slim.gatech.edu/Publications/Public/Conferences/SEG/2022/yin2022SEGlci/index.html},
+	software = {https://github.com/slimgroup/FNO4CO2},
+	author = {Ziyi Yin and Ali Siahkoohi and Mathias Louboutin and Felix J. Herrmann}
 }
 ```
 
