@@ -1,5 +1,7 @@
 name = "FNO4CO2"
-authors = ["Ziyi Yin and Mathias Louboutin and Felix J. Herrmann and SLIM group members"]
+uuid = "4f87af30-b322-4a0d-8c7c-fe8b2256665a"
+authors = ["Ziyi Yin <ziyi.yin@gatech.edu>"]
+version = "1.1.3"
 
 [deps]
 AzSessions = "f239b30d-ae6b-58be-a2d5-7e9f30e280a9"
