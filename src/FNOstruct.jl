@@ -116,7 +116,7 @@ function Net2d(modes::Vector{Int64}, width::Int64; in_channels::Int64=3, out_cha
     )
 end
 
-Net2d(modes::Int64, width::Int64; in_channels::Int64=3, out_channels::Int64=1, mid_channels::Int64=128) = Net3d([modes,modes], width; in_channels=in_channels, out_channels=out_channels, mid_channels=mid_channels)
+Net2d(modes::Int64, width::Int64; in_channels::Int64=3, out_channels::Int64=1, mid_channels::Int64=128) = Net2d([modes,modes], width; in_channels=in_channels, out_channels=out_channels, mid_channels=mid_channels)
 
 ### 2D FNO forward evaluation
 function (B::Net2d{T})(x::AbstractArray{T,4}) where T
