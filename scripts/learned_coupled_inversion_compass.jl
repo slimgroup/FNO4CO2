@@ -178,7 +178,7 @@ for i = 1:nv
 end
 snr = 10f0
 noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
-σ = Float32.(norm(noise_)/sqrt(length(noise_)))
+σ = Float32.(norm(noise_)/sqrt(length(vcat(noise_...))))
 d_obs = d_obs + noise_
 
 # BackTracking linesearch algorithm
