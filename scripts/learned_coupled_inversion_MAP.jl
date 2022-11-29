@@ -68,14 +68,13 @@ x_true = perm[:,:,ntrain+nvalid+1];  # take a test sample
 y_true = conc[:,:,:,ntrain+nvalid+1];
 
 # observation vintages
-nv = 11
-survey_indices = Int.(round.(range(1, stop=22, length=nv)))
+nv = 5
+survey_indices = Int.(round.(range(1, stop=51, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
 # initial z
 z = zeros(Float32, prod(n));
 x_init = G1(z)[:,:,1,1];
-@time y_init = relu01(NN(perm_to_tensor(x_init, grid, AN)));
 
 # set up rock physics
 
@@ -97,10 +96,10 @@ o = (0f0, 0f0)          # origin
 extentx = (n[1]-1)*d[1] # width of model
 extentz = (n[2]-1)*d[2] # depth of model
 
-nsrc = 32       # num of sources
+nsrc = 8       # num of sources
 nrec = 960      # num of receivers
 
-model = [Model(n, d, o, (1f3 ./ vp_stack_up[i]).^2f0; nb = 80) for i = 1:nv]   # wave model
+model = [Model(n, d, o, (1f3 ./ vp_stack_up[i]).^2f0; nb = 160) for i = 1:nv]   # wave model
 
 timeS = timeR = 750f0               # recording time
 dtS = dtR = 1f0                     # recording time sampling rate
@@ -156,20 +155,23 @@ for i = 1:nv
         noise_[i].data[j] = randn(Float32, ntR, nrec)
     end
 end
-snr = 10f0
+snr = 100f0
 noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
-σ = Float32.(norm(noise_)/sqrt(length(noise_)))
+σ = 1f0
 d_obs = d_obs + noise_
-
-# ADAM-W algorithm
-learning_rate = 1f-1
-opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
 
 ### fluid-flow physics (FNO)
 S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(perm_to_tensor(x, grid, AN)))[:,:,survey_indices,1], [3,1,2])
 
 ### rock physics
 R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi)[1]
+
+### init concentration and seismic
+@time y_init = S(x_init);
+rand_ns = [[1] for i = 1:nv]                             # select random source idx for each vintage
+q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
+F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
+d_init = [d_obs[i][rand_ns[i]] for i = 1:nv]                                  # subsampled seismic dataset from the selected sources
 
 ### Define result directory
 sim_name = "coupled_inversion"
@@ -181,7 +183,7 @@ save_path = datadir(sim_name, exp_name)
 niterations = 100
 
 # batchsize in wave equation, i.e. in each iteration the number of sources for each vintage to compute the gradient
-nssample = 4
+nssample = 8
 
 ### track iterations
 hisloss = zeros(Float32, niterations+1)
@@ -190,9 +192,15 @@ hisprior = zeros(Float32, niterations+1)
 prog = Progress(niterations)
 
 ## weighting
-λ = 1f0;
+λ = 0f0;
 
 θ = Flux.params(z)
+
+# ADAM-W algorithm
+learning_rate = 1f-2
+lr_step   = 10
+lr_rate = 0.75f0
+opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
 
 for iter=1:niterations
 
@@ -228,11 +236,22 @@ for iter=1:niterations
     hisprior[iter] = prior
 
     y_predict = S(G1(z)[:,:,1,1]);
+    rand_ns = [[1] for i = 1:nv]                             # select random source idx for each vintage
+    q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
+    F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
+    dobs = [d_obs[i][rand_ns[i]] for i = 1:nv]                                  # subsampled seismic dataset from the selected sources
+
+    ### wave physics
+    function F(v::Vector{Matrix{Float32}})
+        m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
+        return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
+    end
+    v = R(y_predict); v_up = u(v); dpred = F(v_up);
 
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:misfit, misfit), (:prior, prior), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict iter snr nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior learning_rate
+    save_dict = @strdict iter snr nssample z λ rand_ns step niterations nv nsrc nrec survey_indices hisloss hismisfit hisprior learning_rate lr_step lr_rate
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -240,7 +259,7 @@ for iter=1:niterations
     )
 
     ## save figure
-    fig_name = @strdict iter snr nssample λ niterations nv nsrc nrec survey_indices learning_rate
+    fig_name = @strdict iter snr nssample λ niterations nv nsrc nrec survey_indices learning_rate lr_step lr_rate
 
     ## compute true and plot
     SNR = -2f1 * log10(norm(x_true-G1(z)[:,:,1,1])/norm(x_true))
@@ -271,25 +290,46 @@ for iter=1:niterations
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_loss.png"), fig);
     close(fig)
 
-    ## data fitting
+    ## CO2 fitting
     fig = figure(figsize=(20,12));
     for i = 1:5
         subplot(4,5,i);
-        imshow(y_init[:,:,survey_indices[2*i],1]', vmin=0, vmax=1);
-        title("initial prediction at snapshot $(survey_indices[2*i])")
+        imshow(y_init[i,:,:]', vmin=0, vmax=1);
+        title("initial prediction at snapshot $(survey_indices[i])")
         subplot(4,5,i+5);
-        imshow(sw_true[2*i,:,:]', vmin=0, vmax=1);
-        title("true at snapshot $(survey_indices[2*i])")
+        imshow(sw_true[i,:,:]', vmin=0, vmax=1);
+        title("true at snapshot $(survey_indices[i])")
         subplot(4,5,i+10);
-        imshow(y_predict[2*i,:,:]', vmin=0, vmax=1);
-        title("predict at snapshot $(survey_indices[2*i])")
+        imshow(y_predict[i,:,:]', vmin=0, vmax=1);
+        title("predict at snapshot $(survey_indices[i])")
         subplot(4,5,i+15);
-        imshow(5*abs.(sw_true[2*i,:,:]'-y_predict[2*i,:,:]'), vmin=0, vmax=1);
-        title("5X diff at snapshot $(survey_indices[2*i])")
+        imshow(5*abs.(sw_true[i,:,:]'-y_predict[i,:,:]'), vmin=0, vmax=1);
+        title("5X diff at snapshot $(survey_indices[i])")
     end
     suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
+    close(fig)
+
+    ## seismic data fitting
+    fig = figure(figsize=(20,12));
+    for i = 1:5
+        subplot(4,5,i);
+        plot_sdata(d_init[i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("initial prediction at snapshot $(survey_indices[i])")
+        subplot(4,5,i+5);
+        plot_sdata(dobs[i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("true at snapshot $(survey_indices[i])")
+        subplot(4,5,i+10);
+        plot_sdata(dpred[i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("predict at snapshot $(survey_indices[i])")
+        subplot(4,5,i+15);
+        plot_sdata(dobs[i].data[1]-dpred[i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("diff at snapshot $(survey_indices[i])")
+    end
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
+    tight_layout()
+    safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_data_fit.png"), fig);
     close(fig)
 
 end
