@@ -68,7 +68,7 @@ x_true = perm[:,:,ntrain+nvalid+1];  # take a test sample
 y_true = conc[:,:,:,ntrain+nvalid+1];
 
 # observation vintages
-nv = 5
+nv = 11
 survey_indices = Int.(round.(range(1, stop=51, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
@@ -96,7 +96,7 @@ o = (0f0, 0f0)          # origin
 extentx = (n[1]-1)*d[1] # width of model
 extentz = (n[2]-1)*d[2] # depth of model
 
-nsrc = 8       # num of sources
+nsrc = 32       # num of sources
 nrec = 960      # num of receivers
 
 model = [Model(n, d, o, (1f3 ./ vp_stack_up[i]).^2f0; nb = 160) for i = 1:nv]   # wave model
@@ -107,14 +107,14 @@ ntS = Int(floor(timeS/dtS))+1       # time samples
 ntR = Int(floor(timeR/dtR))+1       # source time samples
 
 # source locations -- half at the left hand side of the model, half on top
-xsrc = convertToCell(range(d[1],stop=d[1],length=nsrc))
+xsrc = convertToCell(vcat(range(d[1],stop=d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
-zsrc = convertToCell(range(d[2],stop=(n[2]-1)*d[2],length=nsrc))
+zsrc = convertToCell(vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
 
 # receiver locations -- half at the right hand side of the model, half on top
-xrec = range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=nrec)
+xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
 yrec = 0f0
-zrec = range(d[2],stop=(n[2]-1)*d[2],length=nrec)
+zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
 
 # set up src/rec geometry
 srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
@@ -155,7 +155,7 @@ for i = 1:nv
         noise_[i].data[j] = randn(Float32, ntR, nrec)
     end
 end
-snr = 100f0
+snr = 1000f0
 noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
 σ = 1f0
 d_obs = d_obs + noise_
@@ -171,7 +171,13 @@ R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi)[1]
 rand_ns = [[1] for i = 1:nv]                             # select random source idx for each vintage
 q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
 F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
-d_init = [d_obs[i][rand_ns[i]] for i = 1:nv]                                  # subsampled seismic dataset from the selected sources
+
+### wave physics
+function F_init(v::Vector{Matrix{Float32}})
+    m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
+    return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
+end
+v_init = R(y_init); v_up_init = u(v_init); d_init = F_init(v_up_init);
 
 ### Define result directory
 sim_name = "coupled_inversion"
@@ -197,7 +203,7 @@ prog = Progress(niterations)
 θ = Flux.params(z)
 
 # ADAM-W algorithm
-learning_rate = 1f-2
+learning_rate = 2f-2
 lr_step   = 10
 lr_rate = 0.75f0
 opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
@@ -331,5 +337,7 @@ for iter=1:niterations
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_data_fit.png"), fig);
     close(fig)
+
+    GC.gc()
 
 end
