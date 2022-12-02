@@ -228,7 +228,7 @@ learning_rate = 5f-3
 lr_step   = 10
 lr_rate = 0.75f0
 opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
-θ = Flux.params(x)
+
 for iter=1:niterations
 
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]                             # select random source idx for each vintage
@@ -251,11 +251,13 @@ for iter=1:niterations
     end
 
     ## AD by Flux
+    θ = Flux.params(x)
     @time g = gradient(()->f(x), θ)
     for p in θ
         Flux.Optimise.update!(opt, p, g[p])
     end
     global x = prj(x)
+    
     ## initial loss
     if iter == 1
         hisloss[1] = fval
