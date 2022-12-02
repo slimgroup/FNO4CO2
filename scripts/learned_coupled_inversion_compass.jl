@@ -224,7 +224,7 @@ hisloss = zeros(Float32, niterations+1)
 prog = Progress(niterations)
 
 # ADAM-W algorithm
-learning_rate = 2f-2
+learning_rate = 5f-3
 lr_step   = 10
 lr_rate = 0.75f0
 opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
@@ -293,13 +293,13 @@ for iter=1:niterations
     SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
     fig = figure(figsize=(20,12));
     subplot(2,2,1);
-    imshow(x',vmin=20,vmax=120);title("inversion by NN, $(iter) iter");colorbar();
+    imshow(x',vmin=20,vmax=120);title("inversion by NN, SNR=$SNR");colorbar();
     subplot(2,2,2);
     imshow(x_true',vmin=20,vmax=120);title("GT permeability");colorbar();
     subplot(2,2,3);
     imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
     subplot(2,2,4);
-    imshow(5*abs.(x_true'-x'),vmin=20,vmax=120);title("5X error, SNR=$SNR");colorbar();
+    imshow(5*abs.(x'-x_init'),vmin=20,vmax=120);title("5X inversion - initial");colorbar();
     suptitle("Learned Coupled Inversion at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_inv.png"), fig);
