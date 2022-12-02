@@ -244,7 +244,7 @@ for iter=1:niterations
 
     # function value
     function f(x)
-        c = S(prj(x)); v = R(c); dpred = F(v);
+        c = S(x); v = R(c); dpred = F(v);
         global fval = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
         @show fval
         return fval
@@ -255,6 +255,7 @@ for iter=1:niterations
     for p in θ
         Flux.Optimise.update!(opt, p, g[p])
     end
+    global x = prj(x)
     ## initial loss
     if iter == 1
         hisloss[1] = fval
@@ -299,7 +300,7 @@ for iter=1:niterations
     subplot(2,2,3);
     imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
     subplot(2,2,4);
-    imshow(5*abs.(x'-x_init'),vmin=20,vmax=120);title("5X inversion - initial");colorbar();
+    imshow(5*(x'-x_init'),vmin=20,vmax=120);title("5X inversion - initial");colorbar();
     suptitle("Learned Coupled Inversion at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_inv.png"), fig);
