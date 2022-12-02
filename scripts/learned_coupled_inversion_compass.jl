@@ -88,7 +88,7 @@ y_true = conc[:,:,:,ntrain+nvalid+1];
 
 # observation vintages
 nv = 11
-survey_indices = Int.(round.(range(1, stop=18, length=nv)))
+survey_indices = Int.(round.(range(2, stop=18, length=nv)))
 sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these vintages
 
 # initial x
@@ -116,7 +116,7 @@ o = (0f0, 0f0)          # origin
 extentx = (n[1]-1)*d[1] # width of model
 extentz = (n[2]-1)*d[2] # depth of model
 
-nsrc = 4       # num of sources
+nsrc = 64       # num of sources
 nrec = 336      # num of receivers
 
 model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 120) for i = 1:nv]   # wave model
@@ -142,8 +142,7 @@ recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
 
 # set up source
 f0 = 0.015f0     # kHz
-wavelet = ricker_wavelet(timeS, dtS, f0)
-wavelet = low_filter(wavelet, dtS; fmin=4f0, fmax=15f0)
+wavelet = ricker_wavelet(timeS, dtS, f0)    # need low-filter later
 q = judiVector(srcGeometry, wavelet)
 
 # set up simulation operators
@@ -176,9 +175,9 @@ for i = 1:nv
         noise_[i].data[j] = randn(Float32, ntR, nrec)
     end
 end
-snr = 10f0
+snr = 1000f0
 noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
-σ = Float32.(norm(noise_)/sqrt(length(vcat(noise_...))))
+σ = 1f0
 d_obs = d_obs + noise_
 
 # BackTracking linesearch algorithm
@@ -192,75 +191,44 @@ S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(cat(perm_to_tensor(x, grid
 ### rock physics
 R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi; bulk_min = 5f10)[1]
 
+### init concentration and seismic
+@time y_init = S(x_init);
+rand_ns = [[1] for i = 1:nv]                             # select random source idx for each vintage
+q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
+F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
+
+### wave physics
+function F_init(v::Vector{Matrix{Float32}})
+    m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
+    return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
+end
+v_init = R(y_init); d_init = F_init(v_init);
+
 ### Define result directory
 sim_name = "coupled-inversion-compass"
 exp_name = "no_prior"
 plot_path = plotsdir(sim_name, exp_name)
 save_path = datadir(sim_name, exp_name)
 
-
-if proj
-    # projection
-    using SetIntersectionProjection
-    ####### Projection TV + bound #######
-
-    mutable struct compgrid
-        d :: Tuple
-        n :: Tuple
-    end
-
-    comp_grid = compgrid((15f0, 15f0),(64,64))
-
-    options          = PARSDMM_options()
-    options.FL       = Float32
-    options.feas_tol = 0.001f0
-    options.evol_rel_tol = 0.0001f0
-    set_zero_subnormals(true)
-
-    constraint = Vector{SetIntersectionProjection.set_definitions}()
-
-    #bounds:
-    m_min     = 10.0
-    m_max     = 130.0
-    set_type  = "bounds"
-    TD_OP     = "identity"
-    app_mode  = ("matrix","")
-    custom_TD_OP = ([],false)
-    push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP));
-
-    # TV:
-    TV = get_TD_operator(comp_grid,"TV",options.FL)[1]
-    m_min     = 0.0
-    m_max     = quantile([norm(TV*vec(perm[:,:,i]),1) for i = 1:ntrain], .8)
-    set_type  = "l1"
-    TD_OP     = "TV"
-    app_mode  = ("matrix","")
-    custom_TD_OP = ([],false)
-    push!(constraint, set_definitions(set_type,TD_OP,m_min,m_max,app_mode,custom_TD_OP))
-
-    BLAS.set_num_threads(12)
-    (P_sub,TD_OP,set_Prop) = setup_constraints(constraint,comp_grid,options.FL)
-    (TD_OP,AtA,l,y) = PARSDMM_precompute_distribute(TD_OP,set_Prop,comp_grid,options)
-
-    function prj(x::Matrix{Float32})
-        @time (x1,log_PARSDMM) = PARSDMM(vec(x),AtA,TD_OP,set_Prop,P_sub,comp_grid,options);
-        return reshape(x1, comp_grid.n)::Matrix{Float32}
-    end
-else
-    # just box constraints
-    prj(x::Matrix{Float32}) = max.(min.(x,302f0),0f0)::Matrix{Float32}
-end
+# just box constraints
+prj(x::Matrix{Float32}) = max.(min.(x,302f0),0f0)::Matrix{Float32}
 
 # iterations
-niterations = 100
+niterations = 200
 
 # batchsize in wave equation, i.e. in each iteration the number of sources for each vintage to compute the gradient
-nssample = nsrc
+nssample = 8
 
 ### track iterations
 hisloss = zeros(Float32, niterations+1)
 prog = Progress(niterations)
 
+# ADAM-W algorithm
+learning_rate = 2f-2
+lr_step   = 10
+lr_rate = 0.75f0
+opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
+θ = Flux.params(x)
 for iter=1:niterations
 
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]                             # select random source idx for each vintage
@@ -276,56 +244,42 @@ for iter=1:niterations
 
     # function value
     function f(x)
-        c = S(x); v = R(c); dpred = F(v);
+        c = S(prj(x)); v = R(c); dpred = F(v);
         global fval = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
         @show fval
         return fval
     end
 
     ## AD by Flux
-    @time g = gradient(()->f(x), Flux.params(x)).grads[x]
-    
+    @time g = gradient(()->f(x), θ)
+    for p in θ
+        Flux.Optimise.update!(opt, p, g[p])
+    end
     ## initial loss
     if iter == 1
         hisloss[1] = fval
     end
-
-    # (normalized) update direction
-    p = -g/norm(g, Inf)
-
-    # linesearch
-    function ϕ(α)::Float32
-        try
-            global fval = f(prj(x .+ α * p))
-        catch e
-            @assert typeof(e) == DomainError
-            global fval = Inf32
-        end
-        return fval
-    end
-
-    try
-        global step, fval = ls(ϕ, α, fval, dot(g, p))
-    catch e
-        println("linesearch failed at iteration: ",j)
-        global niterations = j
-        hisloss[j+1] = fval
-        break
-    end
-
-    global α = 1.2f0 * step
-
     hisloss[iter+1] = fval
 
     # Update model and bound projection
-    global x .= prj(x .+ step .* p)
 
     y_predict = S(x);
+    rand_ns = [[1] for i = 1:nv]                             # select random source idx for each vintage
+    q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
+    F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
+    dobs = [d_obs[i][rand_ns[i]] for i = 1:nv]                                  # subsampled seismic dataset from the selected sources
+
+    ### wave physics
+    function F(v::Vector{Matrix{Float32}})
+        m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
+        return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
+    end
+    v_predict = R(y_predict); dpred = F(v_predict);
 
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict proj iter snr nssample x rand_ns step niterations nv nsrc nrec survey_indices hisloss
+    save_dict = @strdict iter snr nssample x rand_ns step niterations nv nsrc nrec survey_indices hisloss learning_rate lr_step lr_rate
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -359,11 +313,11 @@ for iter=1:niterations
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_loss.png"), fig);
     close(fig)
 
-    ## data fitting
+    ## CO2 fitting
     fig = figure(figsize=(20,12));
     for i = 1:5
         subplot(4,5,i);
-        imshow(y_init[:,:,survey_indices[2*i],1]', vmin=0, vmax=1);
+        imshow(y_init[2*i,:,:]', vmin=0, vmax=1);
         title("initial prediction at snapshot $(survey_indices[2*i])")
         subplot(4,5,i+5);
         imshow(sw_true[2*i,:,:]', vmin=0, vmax=1);
@@ -379,5 +333,28 @@ for iter=1:niterations
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fit.png"), fig);
     close(fig)
+
+    ## seismic data fitting
+    fig = figure(figsize=(20,12));
+    for i = 1:5
+        subplot(4,5,i);
+        plot_sdata(d_init[2*i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("initial prediction at snapshot $(survey_indices[2*i])")
+        subplot(4,5,i+5);
+        plot_sdata(dobs[2*i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("true at snapshot $(survey_indices[2*i])")
+        subplot(4,5,i+10);
+        plot_sdata(dpred[2*i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("predict at snapshot $(survey_indices[2*i])")
+        subplot(4,5,i+15);
+        plot_sdata(dobs[2*i].data[1]-dpred[2*i].data[1], (1f0, 1f0); new_fig=false);colorbar();
+        title("diff at snapshot $(survey_indices[2*i])")
+    end
+    suptitle("Learned Coupled Inversion MAP (NF prior) at iter $iter, seismic data snr=$snr")
+    tight_layout()
+    safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_data_fit.png"), fig);
+    close(fig)
+
+    GC.gc()
 
 end
