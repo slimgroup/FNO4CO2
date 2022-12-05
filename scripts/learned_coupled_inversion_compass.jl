@@ -315,7 +315,7 @@ for iter=1:niterations
     subplot(2,2,3);
     imshow(x_init',vmin=20,vmax=120);title("initial permeability");colorbar();
     subplot(2,2,4);
-    imshow(5*(x'-x_init'),vmin=20,vmax=120);title("5X inversion - initial");colorbar();
+    imshow(x'-x_init');title("5X inversion - initial");colorbar();
     suptitle("Learned Coupled Inversion at iter $iter, seismic data snr=$snr")
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_inv.png"), fig);
