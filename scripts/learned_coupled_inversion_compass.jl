@@ -126,15 +126,28 @@ dtS = dtR = 4f0                     # recording time sampling rate
 ntS = Int(floor(timeS/dtS))+1       # time samples
 ntR = Int(floor(timeR/dtR))+1       # source time samples
 
-# source locations -- half at the left hand side of the model, half on top
-xsrc = convertToCell(vcat(range(d[1],stop=d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
-ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
-zsrc = convertToCell(vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
 
-# receiver locations -- half at the right hand side of the model, half on top
-xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
+mode = "reflection"
+if mode == "reflection"
+    xsrc = convertToCell(range(d[1],stop=(n[1]-1)*d[1],length=nsrc))
+    zsrc = convertToCell(range(10f0,stop=10f0,length=nsrc))
+    xrec = range(d[1],stop=(n[1]-1)*d[1],length=nrec)
+    zrec = range(10f0,stop=10f0,length=nrec)
+elseif mode == "transmission"
+    xsrc = convertToCell(range(d[1],stop=d[1],length=nsrc))
+    zsrc = convertToCell(range(d[2],stop=(n[2]-1)*d[2],length=nsrc))
+    xrec = range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=nrec)
+    zrec = range(d[2],stop=(n[2]-1)*d[2],length=nrec)
+else
+    # source locations -- half at the left hand side of the model, half on top
+    xsrc = convertToCell(vcat(range(d[1],stop=d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
+    zsrc = convertToCell(vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
+    xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
+    zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
+end
+
+ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
 yrec = 0f0
-zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
 
 # set up src/rec geometry
 srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
@@ -282,7 +295,7 @@ for iter=1:niterations
     ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, iter), (:stepsize, step)])
 
     ### save intermediate results
-    save_dict = @strdict iter snr nssample x rand_ns step niterations nv nsrc nrec survey_indices hisloss learning_rate lr_step lr_rate
+    save_dict = @strdict mode iter snr nssample x rand_ns step niterations nv nsrc nrec survey_indices hisloss learning_rate lr_step lr_rate
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -290,7 +303,7 @@ for iter=1:niterations
     )
 
     ## save figure
-    fig_name = @strdict proj iter snr nssample niterations nv nsrc nrec survey_indices
+    fig_name = @strdict mode proj iter snr nssample niterations nv nsrc nrec survey_indices
 
     ## compute true and plot
     SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
