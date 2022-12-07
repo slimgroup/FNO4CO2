@@ -266,6 +266,7 @@ for iter=1:niterations
     ## AD by Flux
     θ = Flux.params(x)
     @time g = gradient(()->f(x), θ)
+    gradK = g.grads[x]
     for p in θ
         Flux.Optimise.update!(opt, p, g[p])
     end
@@ -373,7 +374,7 @@ for iter=1:niterations
 
     ## gradient w.r.t. permeability
     fig = figure(figsize=(20,12));
-    plot_simage(g.grads[x], d; d_scale=0, perc=99, name="gradient w.r.t. K, at iter $iter, seismic data snr=$snr"); colorbar();
+    plot_simage(gradK', d; d_scale=0, perc=100, name="gradient w.r.t. K, at iter $iter, seismic data snr=$snr", new_fig=false); colorbar();
     tight_layout()
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_gradK.png"), fig);
     close(fig)
