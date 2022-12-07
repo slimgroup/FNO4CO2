@@ -371,6 +371,13 @@ for iter=1:niterations
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_data_fit.png"), fig);
     close(fig)
 
+    ## gradient w.r.t. permeability
+    fig = figure(figsize=(20,12));
+    plot_simage(g.grads[x], d; d_scale=0, perc=99, name="gradient w.r.t. K, at iter $iter, seismic data snr=$snr"); colorbar();
+    tight_layout()
+    safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_gradK.png"), fig);
+    close(fig)
+
     GC.gc()
 
 end
