@@ -63,7 +63,6 @@ function Patchy(sw::AbstractMatrix{T}, vp::AbstractMatrix{T}, rho::AbstractMatri
 
     ### works for channel problem
     vs = vp./sqrt(3f0)
-    sw = T.(sw)
     bulk_sat1 = rho .* (vp.^2f0 - 4f0/3f0 .* vs.^2f0)
     shear_sat1 = rho .* (vs.^2f0)
 
@@ -79,6 +78,8 @@ function Patchy(sw::AbstractMatrix{T}, vp::AbstractMatrix{T}, rho::AbstractMatri
     rho_new = rho + phi .* sw * (ρw - ρo)
 
     Vp_new = sqrt.((bulk_new+4f0/3f0*shear_sat1)./rho_new)
+    Vp_new = (Vp_new .- vp) .* (sw.>0f0) + vp
+
     return Vp_new, rho_new
 
 end

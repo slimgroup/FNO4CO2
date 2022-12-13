@@ -102,6 +102,7 @@ x = deepcopy(x_init);
 
 JLD2.@load datadir("coupled-inversion-compass","v_test.jld2") v_test
 vp = v_test
+m = (1f3./vp).^2f0
 JLD2.@load datadir("coupled-inversion-compass","rho_test.jld2") rho_test
 rho = rho_test * 1f3
 
@@ -160,16 +161,23 @@ q = judiVector(srcGeometry, wavelet)
 
 # set up simulation operators
 Ftrue = [judiModeling(model[i], srcGeometry, recGeometry) for i = 1:nv] # acoustic wave equation solver
+J = [judiJacobian(judiModeling(Model(n, d, o, m; nb = 120), srcGeometry, recGeometry), q) for i = 1:nv]
+dm = [vec(model[i].m.data)-vec(m) for i = 1:nv]
 
 # Define seismic data directory
 mkpath(datadir("seismic-data"))
-misc_dict = @strdict nsrc nrec
 
 ### generate/load data
+born_or_fwd = "born"
+misc_dict = @strdict nsrc nrec mode born_or_fwd
 if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     println("generating data")
-    global d_obs = [Ftrue[i]*q for i = 1:nv]
-    seismic_dict = @strdict nsrc nrec d_obs q srcGeometry recGeometry model
+    if born_or_fwd == "born"
+        global d_obs = [J[i] * dm[i] for i = 1:nv]
+    else
+        global d_obs = [Ftrue[i]*q for i = 1:nv]
+    end
+    seismic_dict = @strdict nsrc nrec mode born_or_fwd d_obs q srcGeometry recGeometry model
     @tagsave(
         datadir("seismic-data", savename(seismic_dict, "jld2"; digits=6)),
         seismic_dict;
