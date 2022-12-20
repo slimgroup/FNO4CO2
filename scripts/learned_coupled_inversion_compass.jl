@@ -17,6 +17,9 @@ using LineSearches
 using InvertibleNetworks:ActNorm
 using JUDI
 using SlimPlotting
+using Images
+using FFTW
+using JOLI
 
 Random.seed!(2022)
 proj = false
@@ -110,25 +113,32 @@ phi = 0.25f0 * ones(Float32,n)  # porosity
 
 vp_stack = Patchy(sw_true,vp,rho,phi; bulk_min = 5f10)[1]   # time-varying vp
 
+## upsampling
+upsample = 2
+u(x::Matrix{Float32}) = repeat(x, inner=(upsample,upsample))
+u(x::Vector{Matrix{Float32}}) = [u(x[i]) for i = 1:length(x)]
+vp_stack_up = u(vp_stack)
+m_up = u(m)
+
 ##### Wave equation
-d = (12f0, 12f0)        # discretization for wave equation
+n = n.*upsample
+d = (12f0, 12f0) ./ upsample        # discretization for wave equation
 o = (0f0, 0f0)          # origin
 
 extentx = (n[1]-1)*d[1] # width of model
 extentz = (n[2]-1)*d[2] # depth of model
 
-nsrc = 64       # num of sources
-nrec = 336      # num of receivers
+nsrc = 16       # num of sources
+nrec = 668      # num of receivers
 
-model = [Model(n, d, o, (1f3 ./ vp_stack[i]).^2f0; nb = 120) for i = 1:nv]   # wave model
+model = [Model(n, d, o, (1f3 ./ vp_stack_up[i]).^2f0; nb = 160) for i = 1:nv]   # wave model
 
 timeS = timeR = 3600f0               # recording time
 dtS = dtR = 4f0                     # recording time sampling rate
 ntS = Int(floor(timeS/dtS))+1       # time samples
 ntR = Int(floor(timeR/dtR))+1       # source time samples
 
-
-mode = "reflection"
+mode = "transmission"
 if mode == "reflection"
     xsrc = convertToCell(range(d[1],stop=(n[1]-1)*d[1],length=nsrc))
     zsrc = convertToCell(range(10f0,stop=10f0,length=nsrc))
@@ -155,20 +165,20 @@ srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
 recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
 
 # set up source
-f0 = 0.015f0     # kHz
+f0 = 0.05f0     # kHz
 wavelet = ricker_wavelet(timeS, dtS, f0)    # need low-filter later
 q = judiVector(srcGeometry, wavelet)
 
 # set up simulation operators
 Ftrue = [judiModeling(model[i], srcGeometry, recGeometry) for i = 1:nv] # acoustic wave equation solver
-J = [judiJacobian(judiModeling(Model(n, d, o, m; nb = 120), srcGeometry, recGeometry), q) for i = 1:nv]
-dm = [vec(model[i].m.data)-vec(m) for i = 1:nv]
+J = [judiJacobian(judiModeling(Model(n, d, o, m_up; nb = 120), srcGeometry, recGeometry), q) for i = 1:nv]
+dm = [vec(model[i].m.data)-vec(m_up) for i = 1:nv]
 
 # Define seismic data directory
 mkpath(datadir("seismic-data"))
 
 ### generate/load data
-born_or_fwd = "born"
+born_or_fwd = "fwd"
 misc_dict = @strdict nsrc nrec mode born_or_fwd
 if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     println("generating data")
@@ -201,11 +211,6 @@ noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
 σ = 1f0
 d_obs = d_obs + noise_
 
-# BackTracking linesearch algorithm
-ls = BackTracking(c_1=1f-4,iterations=10,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
-fval = Inf32
-α = 1f1
-
 ### fluid-flow physics (FNO)
 S(x::AbstractMatrix{Float32}) = permutedims(relu01(NN(cat(perm_to_tensor(x, grid, AN), qtensor, dims=4)))[:,:,survey_indices,1], [3,1,2])
 
@@ -214,6 +219,7 @@ R(c::AbstractArray{Float32,3}) = Patchy(c,vp,rho,phi; bulk_min = 5f10)[1]
 
 ### init concentration and seismic
 @time y_init = S(x_init);
+
 rand_ns = [[1] for i = 1:nv]                             # select random source idx for each vintage
 q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
 F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
@@ -223,7 +229,7 @@ function F_init(v::Vector{Matrix{Float32}})
     m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
     return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
 end
-v_init = R(y_init); d_init = F_init(v_init);
+v_init = R(y_init); v_init_up = u(v_init); d_init = F_init(v_init_up);
 
 ### Define result directory
 sim_name = "coupled-inversion-compass"
@@ -250,6 +256,32 @@ lr_step   = 10
 lr_rate = 0.75f0
 opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
 
+### design CO2 mute
+A = gaussiankernel(n, 2f1)
+FFT = joDFT(n...; DDT=Float32, RDT=ComplexF32);
+W = joDiag(vec(fft(A)); DDT=ComplexF32, RDT=ComplexF32);
+C = FFT' * W' * W * FFT;
+idx_wb = minimum(find_water_bottom(vp.-vp[1]))
+Tm = judiTopmute(n, idx_wb, 10)
+
+if ~isfile(datadir(sim_name,"y_possible_CO2.jld2"))
+    println("generating possible CO2 flows based on training dataset")
+    @time y_possible_CO2 = [S(x_train[:,:,i]) for i = 1:size(x_train,3)];
+    JLD2.@save datadir(sim_name,"y_possible_CO2.jld2") y_possible_CO2;
+else
+    println("loading possible CO2 flows based on training dataset")
+    JLD2.@load datadir(sim_name,"y_possible_CO2.jld2") y_possible_CO2;
+    global y_possible_CO2 = y_possible_CO2;
+end
+
+function CO2mute(y_possible_CO2::Vector{Array{Float32, 3}}; clip::Float32=1f-3)
+    y_mean = mean(y_possible_CO2);
+    y_mean_smooth = [imfilter(y_mean[i,:,:], Kernel.gaussian(20)) for i = 1:size(y_mean, 1)];
+    mask = Float32.(permutedims(cat([imfilter(Float32.(y_mean_smooth[i] .>= clip), Kernel.gaussian(5)) for i = 1:size(y_mean, 1)]..., dims=3), [3,1,2]));    
+    return mask
+end
+mask = CO2mute(y_possible_CO2);
+
 for iter=1:niterations
 
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]                             # select random source idx for each vintage
@@ -265,7 +297,7 @@ for iter=1:niterations
 
     # function value
     function f(x)
-        c = S(x); v = R(c); dpred = F(v);
+        c = S(x); v = R(mask.*c); dpred = F(u(v));
         global fval = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
         @show fval
         return fval

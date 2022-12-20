@@ -1,4 +1,4 @@
-export relu01, perm_to_tensor, gen_grid, jitter, Patchy
+export relu01, perm_to_tensor, gen_grid, jitter, Patchy, gaussianfunction, gaussiankernel
 
 ##### constrain to 0-1 #####
 relu01(x::AbstractArray{Float32}) = 1f0.-relu.(1f0.-relu.(x))
@@ -88,4 +88,19 @@ function Patchy(sw::AbstractArray{T, 3}, vp::AbstractMatrix{T}, rho::AbstractMat
 
     stack = [Patchy(sw[i,:,:], vp, rho, phi; bulk_min=bulk_min, bulk_fl1=bulk_fl1, bulk_fl2=bulk_fl2, ρw = ρw, ρo=ρo) for i = 1:size(sw,1)]
     return [stack[i][1] for i = 1:size(sw,1)], [stack[i][2] for i = 1:size(sw,1)]
+end
+
+### form gaussian kernel
+function gaussianfunction(x::Float32, y::Float32, width::Float32)
+    return .5f0/pi/width * exp(-0.5f0 * (x^2f0 + y^2f0)/width)
+end
+function gaussiankernel(n::Tuple{Int64, Int64}, width::Float32)
+    A = zeros(Float32, n)
+    
+    for i = 1:n[1]
+        for j = 1:n[2]
+            A[i,j] = gaussianfunction(i-(n[1]+1)/2f0, j-(n[2]+1)/2f0, width)
+        end
+    end
+    return A/sum(A)
 end
