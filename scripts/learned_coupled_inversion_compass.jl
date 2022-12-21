@@ -318,12 +318,12 @@ for iter=1:niterations
         m = [vec(1f3./v[i]).^2f0 for i = 1:nv]
         return [F_sub[i](m[i], q_sub[i]) for i = 1:nv]
     end
-    v_predict = R(y_predict); dpred = F(v_predict);
+    v_predict = R(y_predict); dpred = F(u(v_predict));
 
-    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, iter), (:stepsize, step)])
+    ProgressMeter.next!(prog; showvalues = [(:loss, fval), (:iter, iter)])
 
     ### save intermediate results
-    save_dict = @strdict mode iter snr nssample x rand_ns step niterations nv nsrc nrec survey_indices hisloss learning_rate lr_step lr_rate
+    save_dict = @strdict mode iter snr nssample upsample x rand_ns step niterations nv nsrc nrec survey_indices hisloss learning_rate lr_step lr_rate
     @tagsave(
         joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
         save_dict;
@@ -331,7 +331,7 @@ for iter=1:niterations
     )
 
     ## save figure
-    fig_name = @strdict mode proj iter snr nssample niterations nv nsrc nrec survey_indices
+    fig_name = @strdict mode proj iter snr nssample upsample niterations nv nsrc nrec survey_indices
 
     ## compute true and plot
     SNR = -2f1 * log10(norm(x_true-x)/norm(x_true))
