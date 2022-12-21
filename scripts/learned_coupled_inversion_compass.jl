@@ -285,6 +285,7 @@ mask = CO2mute(y_possible_CO2);
 
 for iter=1:niterations
 
+    Base.flush(Base.stdout)
     rand_ns = [jitter(nsrc, nssample) for i = 1:nv]                             # select random source idx for each vintage
     q_sub = [q[rand_ns[i]] for i = 1:nv]                                        # set-up source
     F_sub = [Ftrue[i][rand_ns[i]] for i = 1:nv]                                 # set-up wave modeling operator
