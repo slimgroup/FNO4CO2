@@ -69,12 +69,10 @@ qgrid_valid = qgrid[:,ntrain+1:ntrain+nvalid];
 grid = gen_grid(n, d, nt, dt)
 
 # Define result directory
-
-sim_name = "coupled-inversion"
+sim_name = "coupled-inversion-compass"
 exp_name = "2phaseflow-compass"
-
-save_dict = @strdict exp_name
-plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
+plot_path = plotsdir(sim_name, exp_name)
+save_path = datadir(sim_name, exp_name)
 
 function q_tensorize(q::Matrix{Int64})
     q_tensor = zeros(Float32, n[1], n[2], nt, 1, size(q,2));
@@ -164,6 +162,7 @@ yrec = 0f0
 # set up src/rec geometry
 srcGeometry = Geometry(xsrc, ysrc, zsrc; dt=dtS, t=timeS)
 recGeometry = Geometry(xrec, yrec, zrec; dt=dtR, t=timeR, nsrc=nsrc)
+opt = Options(optimal_checkpointing=true)
 
 # set up source
 f0 = 0.05f0     # kHz
@@ -171,8 +170,8 @@ wavelet = ricker_wavelet(timeS, dtS, f0)    # need low-filter later
 q = judiVector(srcGeometry, wavelet)
 
 # set up simulation operators
-Ftrue = [judiModeling(model[i], srcGeometry, recGeometry) for i = 1:nv] # acoustic wave equation solver
-J = [judiJacobian(judiModeling(Model(n, d, o, m_up; nb = 120), srcGeometry, recGeometry), q) for i = 1:nv]
+Ftrue = [judiModeling(model[i], srcGeometry, recGeometry; options=opt) for i = 1:nv] # acoustic wave equation solver
+J = [judiJacobian(judiModeling(Model(n, d, o, m_up; nb = 120), srcGeometry, recGeometry; options=opt), q) for i = 1:nv]
 dm = [vec(model[i].m.data)-vec(m_up) for i = 1:nv]
 
 # Define seismic data directory
@@ -232,12 +231,6 @@ function F_init(v::Vector{Matrix{Float32}})
 end
 v_init = R(y_init); v_init_up = u(v_init); d_init = F_init(v_init_up);
 
-### Define result directory
-sim_name = "coupled-inversion-compass"
-exp_name = "no_prior"
-plot_path = plotsdir(sim_name, exp_name)
-save_path = datadir(sim_name, exp_name)
-
 # just box constraints
 prj(x::Matrix{Float32}) = max.(min.(x,302f0),0f0)::Matrix{Float32}
 
@@ -256,14 +249,6 @@ learning_rate = 5f-3
 lr_step   = 10
 lr_rate = 0.75f0
 opt = Flux.Optimiser(ExpDecay(learning_rate, lr_rate, nsrc/nssample*lr_step, 1f-6), ADAMW(learning_rate))
-
-### design CO2 mute
-A = gaussiankernel(n, 2f1)
-FFT = joDFT(n...; DDT=Float32, RDT=ComplexF32);
-W = joDiag(vec(fft(A)); DDT=ComplexF32, RDT=ComplexF32);
-C = FFT' * W' * W * FFT;
-idx_wb = minimum(find_water_bottom(vp.-vp[1]))
-Tm = judiTopmute(n, idx_wb, 10)
 
 if ~isfile(datadir(sim_name,"y_possible_CO2.jld2"))
     println("generating possible CO2 flows based on training dataset")
