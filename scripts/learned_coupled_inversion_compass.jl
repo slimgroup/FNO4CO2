@@ -119,6 +119,7 @@ u(x::Matrix{Float32}) = repeat(x, inner=(upsample,upsample))
 u(x::Vector{Matrix{Float32}}) = [u(x[i]) for i = 1:length(x)]
 vp_stack_up = u(vp_stack)
 m_up = u(m)
+idx_wb = minimum(find_water_bottom(vp_stack_up[1].-vp_stack_up[1][1]))
 
 ##### Wave equation
 n = n.*upsample
@@ -143,18 +144,18 @@ if mode == "reflection"
     xsrc = convertToCell(range(d[1],stop=(n[1]-1)*d[1],length=nsrc))
     zsrc = convertToCell(range(10f0,stop=10f0,length=nsrc))
     xrec = range(d[1],stop=(n[1]-1)*d[1],length=nrec)
-    zrec = range(10f0,stop=10f0,length=nrec)
+    zrec = range((idx_wb-1)*d[2]-2f0,stop=(idx_wb-1)*d[2]-2f0,length=nrec)
 elseif mode == "transmission"
     xsrc = convertToCell(range(d[1],stop=d[1],length=nsrc))
-    zsrc = convertToCell(range(d[2],stop=(n[2]-1)*d[2],length=nsrc))
+    zsrc = convertToCell(range((idx_wb-1)*d[2]+10f0,stop=(n[2]-1)*d[2],length=nsrc))
     xrec = range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=nrec)
-    zrec = range(d[2],stop=(n[2]-1)*d[2],length=nrec)
+    zrec = range((idx_wb-1)*d[2]+10f0,stop=(n[2]-1)*d[2],length=nrec)
 else
     # source locations -- half at the left hand side of the model, half on top
     xsrc = convertToCell(vcat(range(d[1],stop=d[1],length=Int(nsrc/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nsrc/2))))
-    zsrc = convertToCell(vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
+    zsrc = convertToCell(vcat(range((idx_wb-1)*d[2]+10f0,stop=(n[2]-1)*d[2],length=Int(nsrc/2)),range(10f0,stop=10f0,length=Int(nsrc/2))))
     xrec = vcat(range((n[1]-1)*d[1],stop=(n[1]-1)*d[1], length=Int(nrec/2)),range(d[1],stop=(n[1]-1)*d[1],length=Int(nrec/2)))
-    zrec = vcat(range(d[2],stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
+    zrec = vcat(range((idx_wb-1)*d[2]+10f0,stop=(n[2]-1)*d[2],length=Int(nrec/2)),range(10f0,stop=10f0,length=Int(nrec/2)))
 end
 
 ysrc = convertToCell(range(0f0,stop=0f0,length=nsrc))
@@ -179,7 +180,7 @@ mkpath(datadir("seismic-data"))
 
 ### generate/load data
 born_or_fwd = "fwd"
-misc_dict = @strdict nsrc nrec mode born_or_fwd
+misc_dict = @strdict nsrc nrec mode born_or_fwd upsample
 if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     println("generating data")
     if born_or_fwd == "born"
@@ -187,7 +188,7 @@ if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     else
         global d_obs = [Ftrue[i]*q for i = 1:nv]
     end
-    seismic_dict = @strdict nsrc nrec mode born_or_fwd d_obs q srcGeometry recGeometry model
+    seismic_dict = @strdict nsrc nrec mode born_or_fwd upsample d_obs q srcGeometry recGeometry model
     @tagsave(
         datadir("seismic-data", savename(seismic_dict, "jld2"; digits=6)),
         seismic_dict;
