@@ -96,15 +96,15 @@ sw_true = y_true[survey_indices,:,:]; # ground truth CO2 concentration at these 
 x_init = mean(perm[:,:,1:ntrain],dims=3)[:,:,1];
 q_true = qgrid[:,ntrain+nvalid+1:ntrain+nvalid+1];
 qtensor = q_tensorize(q_true);
-x = deepcopy(x_init);
+x = zero(x_init);
 @time y_init = relu01(NN(cat(perm_to_tensor(x_init,grid,AN), qtensor, dims=4)));
 
 # set up rock physics
 
-JLD2.@load datadir("coupled-inversion-compass","v_test.jld2") v_test
+JLD2.@load datadir(sim_name,"v_test.jld2") v_test
 vp = v_test
 m = (1f3./vp).^2f0
-JLD2.@load datadir("coupled-inversion-compass","rho_test.jld2") rho_test
+JLD2.@load datadir(sim_name,"rho_test.jld2") rho_test
 rho = rho_test * 1f3
 
 phi = 0.25f0 * ones(Float32,n)  # porosity
@@ -284,7 +284,7 @@ for iter=1:niterations
 
     # function value
     function f(x)
-        c = S(x); v = R(mask.*c); dpred = F(u(v));
+        c = S(mask[end,:,:] .* x + x_init); v = R(mask.*c); dpred = F(u(v));
         global fval = .5f0/σ^2f0 * nsrc/nssample * norm(dpred-dobs)^2f0
         @show fval
         return fval
