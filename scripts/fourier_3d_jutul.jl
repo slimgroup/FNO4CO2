@@ -72,9 +72,9 @@ x_valid = perm_to_tensor(perm[1:s:end,1:s:end,ntrain+1:ntrain+nvalid],grid,AN);
 # value, x, y, t
 
 NN = Net3d(modes, width)
-gpu_flag && (global NN = NN |> gpu)
+gpu_flag && (global NN = NN |> gpu);
 
-Flux.trainmode!(NN, true)
+Flux.trainmode!(NN, true);
 w = Flux.params(NN)
 
 opt = Flux.Optimise.ADAMW(learning_rate, (0.9f0, 0.999f0), 1f-4)
@@ -103,7 +103,7 @@ for ep = 1:epochs
     Base.flush(Base.stdout)
     idx_e = reshape(randperm(ntrain), batch_size, nbatches)
 
-    Flux.trainmode!(NN, true)
+    Flux.trainmode!(NN, true);
     for b = 1:nbatches
         x = x_train[:, :, :, :, idx_e[:,b]]
         y = y_train[:, :, :, idx_e[:,b]]
@@ -122,7 +122,7 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
-    Flux.testmode!(NN, true)
+    Flux.testmode!(NN, true);
 
     y_predict = relu01(NN(x_plot |> gpu))   |> cpu
 
@@ -130,19 +130,19 @@ for ep = 1:epochs
 
     for i = 1:5
         subplot(4,5,i)
-        imshow(x_plot[:,:,10*i+1,1,1]')
+        imshow(x_plot[:,:,10*i,1,1]')
         title("x")
 
         subplot(4,5,i+5)
-        imshow(y_plot[:,:,10*i+1,1]', vmin=0, vmax=1)
+        imshow(y_plot[:,:,10*i,1]', vmin=0, vmax=1)
         title("true y")
 
         subplot(4,5,i+10)
-        imshow(y_predict[:,:,10*i+1,1]', vmin=0, vmax=1)
+        imshow(y_predict[:,:,10*i,1]', vmin=0, vmax=1)
         title("predict y")
 
         subplot(4,5,i+15)
-        imshow(5f0 .* abs.(y_plot[:,:,10*i+1,1]'-y_predict[:,:,10*i+1,1]'), vmin=0, vmax=1)
+        imshow(5f0 .* abs.(y_plot[:,:,10*i,1]'-y_predict[:,:,10*i,1]'), vmin=0, vmax=1)
         title("5X abs difference")
 
     end
@@ -151,11 +151,11 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_fitting.png"), fig);
     close(fig)
 
-    NN_save = NN |> cpu
+    NN_save = NN |> cpu;
     w_save = Flux.params(NN_save)   
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - (y_valid[:, :, :, valid_idx] |> gpu))/norm(y_valid[:, :, :, valid_idx])
+    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - y_valid[:, :, :, valid_idx])/norm(y_valid[:, :, :, valid_idx])
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
