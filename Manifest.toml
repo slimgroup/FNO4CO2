@@ -2,6 +2,7 @@
 
 julia_version = "1.7.2"
 manifest_format = "2.0"
+project_hash = "d75727effb86504bbb9693a04a4fdbd8b91f06c8"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -190,12 +191,6 @@ deps = ["TranscodingStreams", "Zlib_jll"]
 git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
-
-[[deps.ColorSchemes]]
-deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Random"]
-git-tree-sha1 = "1fd869cc3875b57347f7027521f561cf46d1fcd8"
-uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.19.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -1332,14 +1327,6 @@ version = "1.2.1"
 deps = ["Dates", "FileIO", "ImageCore", "IndirectArrays", "OffsetArrays", "REPL", "libsixel_jll"]
 git-tree-sha1 = "8fb59825be681d451c246a795117f317ecbcaa28"
 uuid = "45858cf5-a6b0-47a3-bbea-62219f50df47"
-version = "0.1.2"
-
-[[deps.SlimPlotting]]
-deps = ["ColorSchemes", "PyPlot", "Statistics"]
-git-tree-sha1 = "eea6a824915a33f580bc1b20f783213fc83025ab"
-repo-rev = "master"
-repo-url = "https://github.com/ziyiyin97/SlimPlotting.jl.git"
-uuid = "f6d04670-764e-495b-a720-91c3c9a588ff"
 version = "0.1.2"
 
 [[deps.SnoopPrecompile]]
