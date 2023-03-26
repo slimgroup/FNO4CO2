@@ -55,7 +55,7 @@ nsamples = size(perm, 3)
 ntrain = 1900
 nvalid = 100
 
-batch_size = 2
+batch_size = 20
 learning_rate = 1f-4
 
 epochs = 1000
