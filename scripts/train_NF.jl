@@ -1,5 +1,6 @@
 using DrWatson
 @quickactivate "FNO4CO2"
+using Pkg; Pkg.instantiate()
 using InvertibleNetworks
 using JLD2
 using Random
@@ -11,9 +12,24 @@ using CUDA
 using PyPlot
 using Distributions
 
+matplotlib.use("agg")
+slurm = try
+    # Slurm
+    parse(Int, ENV["SLURM_CPUS_ON_NODE"])
+    true
+catch e
+    # Desktop
+    false
+end
+
+sim_name = "NF-train"
+exp_name = "perm-channel"
+
+save_path = slurm ? joinpath("/slimdata/zyin62/FNO-NF-MCMC/data/", sim_name, exp_name) : datadir(sim_name, exp_name)
+mkpath(save_path)
+
 # Define raw data directory
-mkpath(datadir("training-data"))
-perm_path = datadir("training-data", "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
+perm_path = joinpath(save_path, "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
 
 # Download the dataset into the data directory if it does not exist
 if ~isfile(perm_path)
@@ -21,7 +37,8 @@ if ~isfile(perm_path)
         'cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2 -q -O $perm_path`)
 end
 
-JLD2.@load "../data/training-data/cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2"
+dict_data = JLD2.jldopen(perm_path, "r")
+perm = dict_data["perm"]
 
 function z_shape_simple(G, ZX_test)
     Z_save, ZX = split_states(ZX_test[:], G.Z_dims)
@@ -34,14 +51,8 @@ function z_shape_simple(G, ZX_test)
     ZX
 end
 
-sim_name = "NFtrain"
-exp_name = "hard_boundary_2value"
-
-save_dict = @strdict exp_name
-save_path = plotsdir(sim_name, savename(save_dict; digits=6))
-
 # Training hyperparameters
-nepochs    = 500
+nepochs    = 128
 batch_size = 50
 lr        = 2f-3
 lr_step   = 10
@@ -54,10 +65,12 @@ K = 6
 n_hidden   = 32
 low       = 0.5f0
 max_recursion = 1
-clip_norm = 5
+clip_norm = 5f0
 
 #data augmentation
-noiseLev   = 0.005f0
+α = 0.01f0
+β = 0.5f0
+αmin = 0f0
 
 # Random seed
 Random.seed!(2022)
@@ -84,9 +97,6 @@ X_test_latent  = X_test[:,:,:,1:batch_size];
 
 X_train_latent = X_train_latent |> gpu;
 X_test_latent  = X_test_latent  |> gpu;
-
-X_train_latent .+= noiseLev*CUDA.randn(Float32, size(X_train_latent))*norm(X_train, Inf);
-X_test_latent  .+= noiseLev*CUDA.randn(Float32, size(X_test_latent))*norm(X_train, Inf);
 
 # Test generative samples 
 ZX_noise = randn(Float32, nx, ny, nc, batch_size) |> gpu;
@@ -128,6 +138,8 @@ for e=1:nepochs
         X = X_train[:, :, :, idx_e[:,b]]
 
         X = X |> gpu
+
+        noiseLev = α/((e-1)*nbatches+b)^β+αmin
 
         X .+= noiseLev*CUDA.randn(Float32, size(X))*norm(X_train, Inf)
 
@@ -282,7 +294,7 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict e gab_l2 λ lr lr_step noiseLev n_hidden L K max_recursion clip_norm
+    fig_name = @strdict e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
     safesave(joinpath(save_path, savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
     close(fig)
 
@@ -291,7 +303,7 @@ for e=1:nepochs
     if(mod(e,intermediate_save_params)==0) 
          # Saving parameters and logs
          Params = get_params(G) |> cpu 
-         save_dict = @strdict e nepochs lr lr_step gab_l2 λ noiseLev n_hidden L K max_recursion Params floss flogdet clip_norm
+         save_dict = @strdict e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
          @tagsave(
              datadir(sim_name, savename(save_dict, "jld2"; digits=6)),
              save_dict;
@@ -336,7 +348,7 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict nepochs e lr lr_step gab_l2 λ noiseLev max_recursion n_hidden L K clip_norm
+    fig_name = @strdict nepochs e lr lr_step gab_l2 λ α αmin β max_recursion n_hidden L K clip_norm
     safesave(joinpath(save_path, savename(fig_name; digits=6)*"mnist_hint_log.png"), fig); close(fig)
     close(fig)
 
