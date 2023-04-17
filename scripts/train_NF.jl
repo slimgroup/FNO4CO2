@@ -68,8 +68,8 @@ max_recursion = 1
 clip_norm = 5f0
 
 #data augmentation
-α = 0.01f0
-β = 0.5f0
+α = 0f0
+β = 0f0
 αmin = 0f0
 
 # Random seed
