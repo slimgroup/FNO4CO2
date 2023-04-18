@@ -52,9 +52,9 @@ function z_shape_simple(G, ZX_test)
 end
 
 # Training hyperparameters
-nepochs    = 128
+nepochs    = 256
 batch_size = 50
-lr        = 2f-3
+lr        = 1f-3
 lr_step   = 10
 gab_l2 = true
 λ = 1f-1
