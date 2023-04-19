@@ -294,7 +294,7 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
+    fig_name = @strdict ntrain nvalid e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
     safesave(joinpath(save_path, savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
     close(fig)
 
@@ -303,7 +303,7 @@ for e=1:nepochs
     if(mod(e,intermediate_save_params)==0) 
          # Saving parameters and logs
          Params = get_params(G) |> cpu 
-         save_dict = @strdict e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
+         save_dict = @strdict ntrain nvalid e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
          @tagsave(
              datadir(sim_name, savename(save_dict, "jld2"; digits=6)),
              save_dict;
@@ -348,7 +348,7 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict nepochs e lr lr_step gab_l2 λ α αmin β max_recursion n_hidden L K clip_norm
+    fig_name = @strdict ntrain nvalid nepochs e lr lr_step gab_l2 λ α αmin β max_recursion n_hidden L K clip_norm
     safesave(joinpath(save_path, savename(fig_name; digits=6)*"mnist_hint_log.png"), fig); close(fig)
     close(fig)
 
