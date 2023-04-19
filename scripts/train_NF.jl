@@ -68,9 +68,9 @@ max_recursion = 1
 clip_norm = 5f0
 
 #data augmentation
-α = 0f0
+α = 0.005f0
 β = 0f0
-αmin = 0f0
+αmin = 0.005f0
 
 # Random seed
 Random.seed!(2022)
