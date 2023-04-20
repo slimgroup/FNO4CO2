@@ -69,7 +69,7 @@ clip_norm = 5f0
 
 #data augmentation
 α = 0.005f0
-β = 0f0
+β = 0.5f0
 αmin = 0.005f0
 
 # Random seed
@@ -295,7 +295,7 @@ for e=1:nepochs
     tight_layout()
 
     fig_name = @strdict ntrain nvalid e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
-    safesave(joinpath(save_path, savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
+    safesave(joinpath(plotsdir(sim_name, exp_name), savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
     close(fig)
 
 
@@ -305,7 +305,7 @@ for e=1:nepochs
          Params = get_params(G) |> cpu 
          save_dict = @strdict ntrain nvalid e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
          @tagsave(
-             datadir(sim_name, savename(save_dict, "jld2"; digits=6)),
+             joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
              save_dict;
              safe=true
          )
