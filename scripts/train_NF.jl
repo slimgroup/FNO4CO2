@@ -52,9 +52,9 @@ function z_shape_simple(G, ZX_test)
 end
 
 # Training hyperparameters
-nepochs    = 128
+nepochs    = 256
 batch_size = 50
-lr        = 2f-3
+lr        = 1f-3
 lr_step   = 10
 gab_l2 = true
 λ = 1f-1
@@ -68,9 +68,9 @@ max_recursion = 1
 clip_norm = 5f0
 
 #data augmentation
-α = 0.01f0
+α = 0.005f0
 β = 0.5f0
-αmin = 0f0
+αmin = 0.005f0
 
 # Random seed
 Random.seed!(2022)
@@ -294,8 +294,8 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
-    safesave(joinpath(save_path, savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
+    fig_name = @strdict ntrain nvalid e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
+    safesave(joinpath(plotsdir(sim_name, exp_name), savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
     close(fig)
 
 
@@ -303,9 +303,9 @@ for e=1:nepochs
     if(mod(e,intermediate_save_params)==0) 
          # Saving parameters and logs
          Params = get_params(G) |> cpu 
-         save_dict = @strdict e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
+         save_dict = @strdict ntrain nvalid e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
          @tagsave(
-             datadir(sim_name, savename(save_dict, "jld2"; digits=6)),
+             joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
              save_dict;
              safe=true
          )
@@ -348,7 +348,7 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict nepochs e lr lr_step gab_l2 λ α αmin β max_recursion n_hidden L K clip_norm
+    fig_name = @strdict ntrain nvalid nepochs e lr lr_step gab_l2 λ α αmin β max_recursion n_hidden L K clip_norm
     safesave(joinpath(save_path, savename(fig_name; digits=6)*"mnist_hint_log.png"), fig); close(fig)
     close(fig)
 
