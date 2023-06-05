@@ -55,7 +55,7 @@ nsamples = size(perm, 3)
 ntrain = 1900
 nvalid = 100
 
-batch_size = 20
+batch_size = 4
 learning_rate = 1f-4
 
 epochs = 1000
@@ -119,7 +119,7 @@ for ep = 1:epochs
             y = y |> gpu
         end
         grads = gradient(w) do
-            global loss = norm(clamp.(NN(x), 0f0, 0.9f0)-y)/norm(y)
+            global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
         end
         Loss[(ep-1)*nbatches+b] = loss
@@ -131,7 +131,7 @@ for ep = 1:epochs
 
     Flux.testmode!(NN, true);
 
-    y_predict = clamp.(NN(x_plot |> gpu), 0f0, 0.9f0)   |> cpu
+    y_predict = relu01(NN(x_plot |> gpu))   |> cpu
 
     fig = figure(figsize=(20, 12))
 
@@ -162,7 +162,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = norm(clamp.(NN_save(x_valid[:, :, :, :, valid_idx]), 0f0, 0.9f0) - y_valid[:, :, :, valid_idx])/norm(y_valid[:, :, :, valid_idx])
+    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - y_valid[:, :, :, valid_idx])/norm(y_valid[:, :, :, valid_idx])
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
