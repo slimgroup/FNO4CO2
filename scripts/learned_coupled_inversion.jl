@@ -20,7 +20,7 @@ using JUDI
 using SlimPlotting
 
 Random.seed!(2022)
-proj = true
+proj = false
 matplotlib.use("agg")
 
 # load the network
