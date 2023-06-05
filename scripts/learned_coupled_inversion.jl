@@ -7,7 +7,7 @@
 
 using DrWatson
 @quickactivate "FNO4CO2"
-
+using Pkg; Pkg.instantiate();
 using FNO4CO2
 using PyPlot
 using Flux, Random
