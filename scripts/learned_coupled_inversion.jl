@@ -15,7 +15,6 @@ using MAT, Statistics, LinearAlgebra
 using ProgressMeter, JLD2
 using LineSearches
 using InvertibleNetworks:ActNorm
-using Seis4CCS.RockPhysics
 using JUDI
 using SlimPlotting
 
