@@ -52,7 +52,7 @@ noiseLev   = 0.02f0
 Random.seed!(2022)
 
 # load in training dataz
-ntrain = Int(round(0.9 * size(perm, 3)))
+ntrain = 2000
 nvalid = Int(round(0.05 * size(perm, 3)))
 
 train_x = perm[:,:,1:ntrain];
