@@ -126,7 +126,8 @@ for ep = 1:epochs
             y = y |> gpu
         end
         grads = gradient(w) do
-            global loss = norm(relu01(NN(x))-y)/norm(y) + λ^2f0 * abs(sum(relu01(NN(x)))-sum(y))/sum(y)
+            ypred = relu01(NN(x))
+            global loss = norm(ypred-y)/norm(y) + λ^2f0 * abs(sum(ypred)-sum(y))/sum(y)
             return loss
         end
         Loss[(ep-1)*nbatches+b] = loss
