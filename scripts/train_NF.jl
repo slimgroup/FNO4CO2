@@ -11,7 +11,13 @@ using CUDA
 using PyPlot
 using Distributions
 
-JLD2.@load "../data/training-data/cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2"
+# Download the dataset into the data directory if it does not exist
+perm_path = datadir("training-data", "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
+if ~isfile(perm_path)
+    run(`wget https://www.dropbox.com/s/xy36bvoz6iqau60/'
+        'cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2 -q -O $perm_path`)
+end
+JLD2.@load perm_path perm
 
 function z_shape_simple(G, ZX_test)
     Z_save, ZX = split_states(ZX_test[:], G.Z_dims)
@@ -32,7 +38,7 @@ save_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
 # Training hyperparameters
 nepochs    = 500
-batch_size = 90
+batch_size = 50
 lr        = 1f-3
 lr_step   = 10
 gab_l2 = true
