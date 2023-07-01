@@ -13,6 +13,7 @@ using Distributions
 
 # Download the dataset into the data directory if it does not exist
 perm_path = datadir("training-data", "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
+mkpath(datadir("training-data"))
 if ~isfile(perm_path)
     run(`wget https://www.dropbox.com/s/xy36bvoz6iqau60/'
         'cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2 -q -O $perm_path`)
