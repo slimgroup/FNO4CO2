@@ -1,0 +1,6 @@
+{
+    "_FNO_LINK": "https://www.dropbox.com/s/7pf7b9etzbqav9l/",
+    "_FNO_NAME": "batch_size=2_dt=0.142857_ep=350_epochs=1000_learning_rate=0.0001_modes=4_nt=8_ntrain=1900_nvalid=100_s=1_width=20.jld2",
+    "_NF_LINK": "https://www.dropbox.com/s/57dgx9x7zm4lw9m/",
+    "_NF_NAME": "K=6_L=5_clip_norm=5.0_e=245_gab_l2=true_lr=0.001_lr_step=10_max_recursion=1_n_hidden=32_nepochs=256_ntrain=5000_nvalid=500_α=0.005_αmin=0.005_β=0.5_λ=0.1.jld2"
+}

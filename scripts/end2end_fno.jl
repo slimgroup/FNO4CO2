@@ -226,7 +226,7 @@ println("FNO prediction error on true = ", norm(vec(y_true)-state_true)/norm(sta
 
 ls = BackTracking(order=3, iterations=20)
 
-c = O(SFNO(K |> gpu)|> cpu); v = R(c); v_up = u(v); d_obs = F(v_up);
+#c = O(SFNO(K |> gpu)|> cpu); v = R(c); v_up = u(v); d_obs = F(v_up);
 function obj(K0)
     c = O(SFNO(K0)|> cpu); v = R(c); v_up = u(v); dpred = F(v_up);
     fval = .5f0 * norm(dpred-d_obs)^2f0

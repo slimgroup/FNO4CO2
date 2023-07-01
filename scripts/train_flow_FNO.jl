@@ -62,7 +62,7 @@ nsamples = size(perm, 3)
 ntrain = 1900
 nvalid = 100
 
-batch_size = 4
+batch_size = 2
 learning_rate = 1f-4
 
 epochs = 1000
@@ -114,6 +114,7 @@ y_plot = y_valid[:, :, :, 1:1]
 λ = 1f0
 for ep = 1:epochs
     meminfo_julia()
+    GC.gc()
     Base.flush(Base.stdout)
     idx_e = reshape(randperm(ntrain), batch_size, nbatches)
 
