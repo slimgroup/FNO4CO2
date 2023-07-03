@@ -1,5 +1,6 @@
 using DrWatson
 @quickactivate "FNO4CO2"
+using Pkg; Pkg.instantiate()
 using InvertibleNetworks
 using JLD2
 using Random
@@ -11,14 +12,33 @@ using CUDA
 using PyPlot
 using Distributions
 
+matplotlib.use("agg")
+slurm = try
+    # Slurm
+    parse(Int, ENV["SLURM_CPUS_ON_NODE"])
+    true
+catch e
+    # Desktop
+    false
+end
+
+sim_name = "NF-train"
+exp_name = "perm-channel"
+
+save_path = slurm ? joinpath("/slimdata/zyin62/FNO4CO2/data/", sim_name, exp_name) : datadir(sim_name, exp_name)
+mkpath(save_path)
+
+# Define raw data directory
+perm_path = joinpath(save_path, "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
+
 # Download the dataset into the data directory if it does not exist
-perm_path = datadir("training-data", "cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2")
-mkpath(datadir("training-data"))
 if ~isfile(perm_path)
     run(`wget https://www.dropbox.com/s/xy36bvoz6iqau60/'
         'cons=1e-5_delta=25_num_sample=10000_theta0=5.jld2 -q -O $perm_path`)
 end
-JLD2.@load perm_path perm
+
+dict_data = JLD2.jldopen(perm_path, "r")
+perm = dict_data["perm"]
 
 function z_shape_simple(G, ZX_test)
     Z_save, ZX = split_states(ZX_test[:], G.Z_dims)
@@ -31,14 +51,8 @@ function z_shape_simple(G, ZX_test)
     ZX
 end
 
-sim_name = "NFtrain"
-exp_name = "hard_boundary_2value"
-
-save_dict = @strdict exp_name
-save_path = plotsdir(sim_name, savename(save_dict; digits=6))
-
 # Training hyperparameters
-nepochs    = 500
+nepochs    = 512
 batch_size = 50
 lr        = 1f-3
 lr_step   = 10
@@ -46,14 +60,17 @@ gab_l2 = true
 λ = 1f-1
 
 #architecture parametrs
-L = 6
+L = 5
 K = 6
 n_hidden   = 32
 low       = 0.5f0
 max_recursion = 1
+clip_norm = 5f0
 
 #data augmentation
-noiseLev   = 0.02f0
+α = 0.005f0
+β = 0.5f0
+αmin = 0.005f0
 
 # Random seed
 Random.seed!(2022)
@@ -81,9 +98,6 @@ X_test_latent  = X_test[:,:,:,1:batch_size];
 X_train_latent = X_train_latent |> gpu;
 X_test_latent  = X_test_latent  |> gpu;
 
-X_train_latent .+= noiseLev*CUDA.randn(Float32, size(X_train_latent))*norm(X_train, Inf);
-X_test_latent  .+= noiseLev*CUDA.randn(Float32, size(X_test_latent))*norm(X_train, Inf);
-
 # Test generative samples 
 ZX_noise = randn(Float32, nx, ny, nc, batch_size) |> gpu;
 
@@ -97,7 +111,7 @@ nbatches = cld(ntrain, batch_size)
 train_loader = DataLoader(train_idx, batchsize=batch_size, shuffle=false)
 
 # Optimizer
-opt = Optimiser(ExpDecay(lr, .99f0, nbatches*lr_step, 1f-6), ADAM(lr))
+opt = Optimiser(ExpDecay(lr, .99f0, nbatches*lr_step, 1f-6), ClipNorm(clip_norm),ADAM(lr))
 
 t = G.forward(X_train_latent); # to initialize actnorm
 θ = get_params(G);
@@ -125,6 +139,8 @@ for e=1:nepochs
 
         X = X |> gpu
 
+        noiseLev = α/((e-1)*nbatches+b)^β+αmin
+
         X .+= noiseLev*CUDA.randn(Float32, size(X))*norm(X_train, Inf)
 
         Zx, lgdet = G.forward(X)
@@ -134,7 +150,6 @@ for e=1:nepochs
 
         G.backward((Zx / batch_size)[:], (Zx)[:])
         GC.gc()
-        
 
         print("Iter: epoch=", e, "/", nepochs, ", batch=", b, "/", nbatches, 
             "; f l2 = ",  floss[b,e], 
@@ -181,16 +196,16 @@ for e=1:nepochs
 
     fig = figure(figsize=(14, 12))
 
-    subplot(4,5,1); imshow(X_gen[:,:,1,1], aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,1); imshow(X_gen[:,:,1,1]', aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off");  title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,2); imshow(X_gen[:,:,1,2], aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,2); imshow(X_gen[:,:,1,2]', aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,3); imshow(X_train_latent[:,:,1,1] |> cpu, aspect=1, vmin=20,vmax=120, resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,3); imshow(X_train_latent[:,:,1,1]' |> cpu, aspect=1, vmin=20,vmax=120, resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x_{train1} \sim p(x)$")
 
-    subplot(4,5,4); imshow(ZX_train_sq[:,:,1,1], aspect=1, resample=true, interpolation="none", filterrad=1, 
+    subplot(4,5,4); imshow(ZX_train_sq[:,:,1,1]', aspect=1, resample=true, interpolation="none", filterrad=1, 
                                     vmin=-3, vmax=3, cmap="seismic"); axis("off"); 
     title(L"$z_{train1} = G^{-1}(x_{train1})$ "*string("\n")*" mean "*string(mean_train_1)*" std "*string(std_train_1));
 
@@ -205,17 +220,17 @@ for e=1:nepochs
     title(L"qq plot with $z_{train1}$"); xlim(-5,5); ylim(-5,5);
     #xlabel("Theoretical Quantiles"); ylabel("Sample Quantiles")
     
-    subplot(4,5,6); imshow(X_gen[:,:,1,3], aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,6); imshow(X_gen[:,:,1,3]', aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off");  title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,7); imshow(X_gen[:,:,1,4], aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,7); imshow(X_gen[:,:,1,4]', aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,8); imshow(X_train_latent[:,:,1,2]|> cpu, aspect=1, vmin=20,vmax=120, resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,8); imshow(X_train_latent[:,:,1,2]' |> cpu, aspect=1, vmin=20,vmax=120, resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x_{train2} \sim p(x)$")
 
       
-    subplot(4,5,9) ;imshow(ZX_train_sq[:,:,1,2], aspect=1, resample=true, interpolation="none", filterrad=1, 
+    subplot(4,5,9) ;imshow(ZX_train_sq[:,:,1,2]', aspect=1, resample=true, interpolation="none", filterrad=1, 
                                     vmin=-3, vmax=3, cmap="seismic"); axis("off"); 
     title(L"$z_{train2} = G^{-1}(x_{train2})$ "*string("\n")*" mean "*string(mean_train_2)*" std "*string(std_train_2));
         
@@ -229,17 +244,17 @@ for e=1:nepochs
     title(L"qq plot with $z_{train2}$"); xlim(-5,5);ylim(-5,5);
     #xlabel("Theoretical Quantiles"); ylabel("Sample Quantiles")  
 
-    subplot(4,5,11); imshow(X_gen[:,:,1,5], aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,11); imshow(X_gen[:,:,1,5]', aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off");  title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,12); imshow(X_gen[:,:,1,6], aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,12); imshow(X_gen[:,:,1,6]', aspect=1, vmin=20,vmax=120,resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,13); imshow(X_test_latent[:,:,1,1]|> cpu, aspect=1, vmin=20,vmax=120, resample=true, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,13); imshow(X_test_latent[:,:,1,1]' |> cpu, aspect=1, vmin=20,vmax=120, resample=true, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x_{test1} \sim p(x)$")
 
       
-    subplot(4,5,14) ;imshow(ZX_test_sq[:,:,1,1], aspect=1, resample=true, interpolation="none", filterrad=1, 
+    subplot(4,5,14) ;imshow(ZX_test_sq[:,:,1,1]', aspect=1, resample=true, interpolation="none", filterrad=1, 
                                     vmin=-3, vmax=3, cmap="seismic"); axis("off"); 
     title(L"$z_{test1} = G^{-1}(x_{test1})$ "*string("\n")*" mean "*string(mean_test_1)*" std "*string(std_test_1));
         
@@ -254,17 +269,16 @@ for e=1:nepochs
     #xlabel("Theoretical Quantiles"); ylabel("Sample Quantiles")  
 
 
-    subplot(4,5,16); imshow(X_gen[:,:,1,7], aspect=1, vmin=20,vmax=120,
+    subplot(4,5,16); imshow(X_gen[:,:,1,7]', aspect=1, vmin=20,vmax=120,
         interpolation="none", filterrad=1, cmap="gray"); axis("off");  title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,17); imshow(X_gen[:,:,1,8], aspect=1, vmin=20,vmax=120, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,17); imshow(X_gen[:,:,1,8]', aspect=1, vmin=20,vmax=120, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x\sim p_{\theta}(x)$")
 
-    subplot(4,5,18); imshow(X_test_latent[:,:,1,2]|> cpu, aspect=1, vmin=20,vmax=120, interpolation="none", filterrad=1, cmap="gray")
+    subplot(4,5,18); imshow(X_test_latent[:,:,1,2]' |> cpu, aspect=1, vmin=20,vmax=120, interpolation="none", filterrad=1, cmap="gray")
     axis("off"); title(L"$x_{test2} \sim p(x)$")
-
-      
-    subplot(4,5,19) ;imshow(ZX_test_sq[:,:,1,2], aspect=1, interpolation="none", filterrad=1, 
+     
+    subplot(4,5,19) ;imshow(ZX_test_sq[:,:,1,2]', aspect=1, interpolation="none", filterrad=1, 
                                     vmin=-3, vmax=3, cmap="seismic"); axis("off"); 
     title(L"$z_{test2} = G^{-1}(x_{test2})$ "*string("\n")*" mean "*string(mean_test_2)*" std "*string(std_test_2));
         
@@ -280,8 +294,8 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict e gab_l2 λ lr lr_step noiseLev n_hidden L K max_recursion
-    safesave(joinpath(save_path, savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
+    fig_name = @strdict ntrain nvalid e gab_l2 λ lr lr_step α αmin β n_hidden L K max_recursion clip_norm
+    safesave(joinpath(plotsdir(sim_name, exp_name), savename(fig_name; digits=6)*"_hint_latent.png"), fig); close(fig)
     close(fig)
 
 
@@ -289,9 +303,9 @@ for e=1:nepochs
     if(mod(e,intermediate_save_params)==0) 
          # Saving parameters and logs
          Params = get_params(G) |> cpu 
-         save_dict = @strdict e nepochs lr lr_step gab_l2 λ noiseLev n_hidden L K max_recursion Params floss flogdet
+         save_dict = @strdict ntrain nvalid e nepochs lr lr_step gab_l2 λ α αmin β n_hidden L K max_recursion Params floss flogdet clip_norm
          @tagsave(
-             datadir(sim_name, savename(save_dict, "jld2"; digits=6)),
+             joinpath(save_path, savename(save_dict, "jld2"; digits=6)),
              save_dict;
              safe=true
          )
@@ -334,7 +348,7 @@ for e=1:nepochs
 
     tight_layout()
 
-    fig_name = @strdict nepochs e lr lr_step gab_l2 λ noiseLev max_recursion n_hidden L K
+    fig_name = @strdict ntrain nvalid nepochs e lr lr_step gab_l2 λ α αmin β max_recursion n_hidden L K clip_norm
     safesave(joinpath(save_path, savename(fig_name; digits=6)*"mnist_hint_log.png"), fig); close(fig)
     close(fig)
 
