@@ -87,7 +87,7 @@ dict_data = JLD2.jldopen(perm_path, "r")
 perm = Float32.(dict_data["Ks"]);
 
 ### observed states
-nv = length(tstep)
+nv = 6
 survey_indices = 1:nv
 O(state::AbstractArray) = [state[:,:,i] for i = 1:nv]
 function O(state::jutulStates)
@@ -155,13 +155,13 @@ end
 
 # Define seismic data directory
 mkpath(datadir("seismic-data"))
-misc_dict = @strdict nsrc nrec upsample
+misc_dict = @strdict nv nsrc nrec upsample
 
 ### generate/load data
 if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     println("generating data")
     global d_obs = [Fs[i]*q for i = 1:nv]
-    seismic_dict = @strdict nsrc nrec upsample d_obs q srcGeometry recGeometry model
+    seismic_dict = @strdict nv nsrc nrec upsample d_obs q srcGeometry recGeometry model
     @tagsave(
         datadir("seismic-data", savename(seismic_dict, "jld2"; digits=6)),
         seismic_dict;
@@ -180,14 +180,14 @@ for i = 1:nv
         noise_[i].data[j] = randn(Float32, ntR, nrec)
     end
 end
-snr = 1000f0
+snr = 10f0
 noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
 if snr <= 100f0
     d_obs = d_obs + noise_
 end
 
 # Main loop
-niterations = 100
+niterations = 50
 fhistory = zeros(niterations)
 fnoerror = zeros(niterations)
 
@@ -226,7 +226,18 @@ println("FNO prediction error on true = ", norm(vec(y_true)-state_true)/norm(sta
 
 ls = BackTracking(order=3, iterations=20)
 
-#c = O(SFNO(K |> gpu)|> cpu); v = R(c); v_up = u(v); d_obs = F(v_up);
+c = O(SFNO(K |> gpu)|> cpu); v = R(c); v_up = u(v); d_obs = F(v_up);
+## add noise
+noise_ = deepcopy(d_obs)
+for i = 1:nv
+    for j = 1:nsrc
+        noise_[i].data[j] = randn(Float32, ntR, nrec)
+    end
+end
+snr = 10f0
+noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
+d_obs = d_obs + noise_
+
 function obj(K0)
     c = O(SFNO(K0)|> cpu); v = R(c); v_up = u(v); dpred = F(v_up);
     fval = .5f0 * norm(dpred-d_obs)^2f0
@@ -306,17 +317,17 @@ for j=1:niterations
     fig = figure(figsize=(20,12));
     for i = 1:4
         subplot(4,4,i);
-        imshow(y_init[:,:,2*i]', vmin=0, vmax=1);
-        title("initial prediction at snapshot $(survey_indices[2*i])")
+        imshow(y_init[:,:,i]', vmin=0, vmax=1);
+        title("initial prediction at snapshot $(survey_indices[i])")
         subplot(4,4,i+4);
-        imshow(sw_true[2*i,:,:]', vmin=0, vmax=1);
-        title("true at snapshot $(survey_indices[2*i])")
+        imshow(sw_true[i,:,:]', vmin=0, vmax=1);
+        title("true at snapshot $(survey_indices[i])")
         subplot(4,4,i+8);
-        imshow(y_predict[2*i]', vmin=0, vmax=1);
-        title("predict at snapshot $(survey_indices[2*i])")
+        imshow(y_predict[i]', vmin=0, vmax=1);
+        title("predict at snapshot $(survey_indices[i])")
         subplot(4,4,i+12);
-        imshow(5*abs.(sw_true[2*i,:,:]'-y_predict[2*i]'), vmin=0, vmax=1);
-        title("5X diff at snapshot $(survey_indices[2*i])")
+        imshow(5*abs.(sw_true[i,:,:]'-y_predict[i]'), vmin=0, vmax=1);
+        title("5X diff at snapshot $(survey_indices[i])")
     end
     suptitle("End-to-end Inversion at iter $j, seismic data snr=$snr")
     tight_layout()

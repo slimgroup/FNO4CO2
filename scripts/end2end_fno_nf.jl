@@ -69,12 +69,6 @@ T(x) = log.(KtoTrans(mesh, K1to3(exp.(x))))
 
 prj(x::AbstractArray{T}; upper=T(log(130*md)), lower=T(log(10*md))) where T = max.(min.(x,T(upper)),T(lower))
 
-# Main loop
-niterations = 100
-fhistory = zeros(niterations)
-
-obj(logK) = .5 * norm(S(T(prj(logK)), f)[1:length(tstep)*prod(n)]-state[1:length(tstep)*prod(n)])^2f0
-
 # Define raw data directory
 mkpath(datadir("gen-train","flow-channel"))
 perm_path = joinpath(datadir("gen-train","flow-channel"), "irate=0.005_nsample=2000.jld2")
@@ -89,7 +83,7 @@ dict_data = JLD2.jldopen(perm_path, "r")
 perm = Float32.(dict_data["Ks"]);
 
 ### observed states
-nv = length(tstep)
+nv = 6
 survey_indices = 1:nv
 O(state::AbstractArray) = [state[:,:,i] for i = 1:nv]
 function O(state::jutulStates)
@@ -157,13 +151,13 @@ end
 
 # Define seismic data directory
 mkpath(datadir("seismic-data"))
-misc_dict = @strdict nsrc nrec upsample
+misc_dict = @strdict nv nsrc nrec upsample
 
 ### generate/load data
 if ~isfile(datadir("seismic-data", savename(misc_dict, "jld2"; digits=6)))
     println("generating data")
     global d_obs = [Fs[i]*q for i = 1:nv]
-    seismic_dict = @strdict nsrc nrec upsample d_obs q srcGeometry recGeometry model
+    seismic_dict = @strdict nv nsrc nrec upsample d_obs q srcGeometry recGeometry model
     @tagsave(
         datadir("seismic-data", savename(seismic_dict, "jld2"; digits=6)),
         seismic_dict;
@@ -175,19 +169,8 @@ else
     global d_obs = d_obs
 end
 
-## add noise
-noise_ = deepcopy(d_obs)
-for i = 1:nv
-    for j = 1:nsrc
-        noise_[i].data[j] = randn(Float32, ntR, nrec)
-    end
-end
-snr = 1000f0
-noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
-d_obs = d_obs + noise_
-
 # Main loop
-niterations = 200
+niterations = 50
 fhistory = zeros(niterations)
 fnoerror = zeros(niterations)
 
@@ -261,7 +244,18 @@ z = vec(G1.inverse(reshape(K0,n[1],n[end],1,1)));
 
 ls = BackTracking(c_1=1f-4,iterations=50,maxstep=Inf32,order=3,ρ_hi=5f-1,ρ_lo=1f-1)
 
-#c = O(SFNO(K)); v = R(c); v_up = u(v); d_obs = F(v_up);
+c = O(SFNO(K)); v = R(c); v_up = u(v); d_obs = F(v_up);
+## add noise
+noise_ = deepcopy(d_obs)
+for i = 1:nv
+    for j = 1:nsrc
+        noise_[i].data[j] = randn(Float32, ntR, nrec)
+    end
+end
+snr = 10f0
+noise_ = noise_/norm(noise_) *  norm(d_obs) * 10f0^(-snr/20f0)
+d_obs = d_obs + noise_
+
 function obj(z)
     global K0 = G1(z)[:,:,1,1]
     global c = O(SFNO(K0)|> cpu); v = R(c); v_up = u(v); dpred = F(v_up);
@@ -350,17 +344,17 @@ for j=1:niterations
     fig = figure(figsize=(20,12));
     for i = 1:4
         subplot(4,4,i);
-        imshow(y_init[:,:,2*i]', vmin=0, vmax=1);
-        title("initial prediction at snapshot $(survey_indices[2*i])")
+        imshow(y_init[:,:,i]', vmin=0, vmax=1);
+        title("initial prediction at snapshot $(survey_indices[i])")
         subplot(4,4,i+4);
-        imshow(sw_true[2*i,:,:]', vmin=0, vmax=1);
-        title("true at snapshot $(survey_indices[2*i])")
+        imshow(sw_true[i,:,:]', vmin=0, vmax=1);
+        title("true at snapshot $(survey_indices[i])")
         subplot(4,4,i+8);
-        imshow(y_predict[2*i]', vmin=0, vmax=1);
-        title("predict at snapshot $(survey_indices[2*i])")
+        imshow(y_predict[i]', vmin=0, vmax=1);
+        title("predict at snapshot $(survey_indices[i])")
         subplot(4,4,i+12);
-        imshow(5*abs.(sw_true[2*i,:,:]'-y_predict[2*i]'), vmin=0, vmax=1);
-        title("5X diff at snapshot $(survey_indices[2*i])")
+        imshow(5*abs.(sw_true[i,:,:]'-y_predict[i]'), vmin=0, vmax=1);
+        title("5X diff at snapshot $(survey_indices[i])")
     end
     suptitle("End-to-end Inversion at iter $j, seismic data snr=$snr")
     tight_layout()
