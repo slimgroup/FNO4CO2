@@ -73,6 +73,7 @@ x_valid = perm_to_tensor(perm[1:s:end,1:s:end,ntrain+1:ntrain+nvalid],grid,AN);
 
 NN = Net3d(modes, width)
 gpu_flag && (global NN = NN |> gpu)
+device = gpu_flag ? gpu : cpu
 
 Flux.trainmode!(NN, true)
 w = Flux.params(NN)
@@ -105,12 +106,8 @@ for ep = 1:epochs
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
-        x = x_train[:, :, :, :, idx_e[:,b]]
-        y = y_train[:, :, :, idx_e[:,b]]
-        if gpu_flag
-            x = x |> gpu
-            y = y |> gpu
-        end
+        x = x_train[:, :, :, :, idx_e[:,b]] |> device
+        y = y_train[:, :, :, idx_e[:,b]] |> device
         grads = gradient(w) do
             global loss = norm(relu01(NN(x))-y)/norm(y)
             return loss
@@ -124,7 +121,7 @@ for ep = 1:epochs
 
     Flux.testmode!(NN, true)
 
-    y_predict = relu01(NN(x_plot |> gpu))   |> cpu
+    y_predict = relu01(NN(x_plot |> device))   |> cpu
 
     fig = figure(figsize=(20, 12))
 
@@ -155,7 +152,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - (y_valid[:, :, :, valid_idx] |> gpu))/norm(y_valid[:, :, :, valid_idx])
+    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - (y_valid[:, :, :, valid_idx] |> device))/norm(y_valid[:, :, :, valid_idx])
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
