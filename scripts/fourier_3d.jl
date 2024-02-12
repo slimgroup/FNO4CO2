@@ -152,7 +152,7 @@ for ep = 1:epochs
     w_save = Flux.params(NN_save)   
 
     valid_idx = randperm(nvalid)[1:batch_size]
-    Loss_valid[ep] = norm(relu01(NN_save(x_valid[:, :, :, :, valid_idx])) - (y_valid[:, :, :, valid_idx] |> device))/norm(y_valid[:, :, :, valid_idx])
+    Loss_valid[ep] = norm((relu01(NN_save(x_valid[:, :, :, :, valid_idx])) |> device) - (y_valid[:, :, :, valid_idx] |> device))/norm(y_valid[:, :, :, valid_idx])
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
