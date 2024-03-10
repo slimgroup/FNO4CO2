@@ -21,6 +21,7 @@ export DEVITO_ARCH=nvc
 export DEVITO_PLATFORM=nvidiaX
 
 export DFNO_3D_GPU=1
+export FNO4CO2GPU=1
 
 srun julia scripts/fourier_parametric_dfno.jl
 
