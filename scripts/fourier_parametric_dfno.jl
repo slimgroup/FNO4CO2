@@ -178,13 +178,13 @@ for ep = 1:epochs
     ####### NEW STUFF DFNO ###########
 
     x_temp = tensorize(x_plot, grid, AN) |> gpu
-    y_predict = reshape(DFNO_3D.forward(x_temp), n) |> cpu
+    y_predict = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
 
     # Flux.testmode!(NN, true)
     # y_predict = NN(tensorize(x_plot, grid, AN) |> gpu)   |> cpu
 
     x_temp = tensorize(x_valid, grid, AN) |> gpu
-    y_temp = reshape(DFNO_3D.forward(x_temp), n) |> gpu
+    y_temp = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> gpu
 
     ####### END NEW STUFF DFNO ###########
 
