@@ -55,7 +55,7 @@ end
 n = (160, 205)
 d = 1f0 ./ n
 nsamples = 210
-ntrain = 5 # 205
+ntrain = 205
 nvalid = 5
 grid = gen_grid(n, d);
 
