@@ -175,7 +175,6 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
-    (ep % 100 !== 0) && continue
     ####### NEW STUFF DFNO ###########
 
     x_temp = tensorize(x_plot, grid, AN) |> gpu
@@ -189,12 +188,15 @@ for ep = 1:epochs
     x_temp = permutedims(x_temp, [3, 1, 2, 4])
     y_temp = reshape(DFNO_3D.forward(model, θ, x_temp), n..., :) |> gpu
 
+    Loss_valid[ep] = norm(y_temp - (y_valid |> gpu))^2f0 * batch_size/nvalid
+    (ep % 100 !== 0) && continue
+
     fig = figure(figsize=(16, 12))
 
     # subplot(3,2,1)
     # plot_velocity(x_plot, (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="GnBu"); colorbar();
 
-    x_temp = tensorize(x_train[:, :, 1], grid, AN) |> gpu
+    x_temp = tensorize(x_train[:, :, 10], grid, AN) |> gpu
     x_temp = permutedims(x_temp, [3, 1, 2, 4])
     y_temp2 = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
 
@@ -231,7 +233,7 @@ for ep = 1:epochs
 
     ####### NEW STUFF DFNO ###########
 
-    Loss_valid[ep] = norm(y_temp - (y_valid |> gpu))^2f0 * batch_size/nvalid
+    # Loss_valid[ep] = norm(y_temp - (y_valid |> gpu))^2f0 * batch_size/nvalid
     # Loss_valid[ep] = norm((NN(tensorize(x_valid, grid, AN) |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
 
     ####### END NEW STUFF DFNO ###########
