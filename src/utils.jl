@@ -2,6 +2,7 @@ export relu01, perm_to_tensor, gen_grid, jitter, Patchy
 
 ##### constrain to 0-1 #####
 relu01(x::AbstractArray{Float32}) = 1f0.-relu.(1f0.-relu.(x))
+relu01(x::AbstractArray{Float64}) = 1f0.-relu.(1f0.-relu.(x))
 
 ##### generate grid #####
 

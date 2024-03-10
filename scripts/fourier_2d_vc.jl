@@ -121,6 +121,7 @@ for ep = 1:epochs
             x = x |> gpu
             y = y |> gpu
         end
+        println(size(x), size(y))
         grads = gradient(w) do
             global loss = norm(NN(x)-y)^2f0
             return loss
