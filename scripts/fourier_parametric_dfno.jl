@@ -152,7 +152,7 @@ for ep = 1:epochs
         ####### NEW STUFF DFNO ###########
 
         function loss_helper(params)
-            global loss = norm(vec(DFNO_3D.forward(model, params, x)) - vec(y))
+            global loss = norm(vec(DFNO_3D.forward(model, params, x)) - vec(y))^2f0
             return loss
         end
 
