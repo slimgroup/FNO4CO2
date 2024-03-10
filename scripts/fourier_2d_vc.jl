@@ -101,7 +101,7 @@ y_plot = y_valid[:, :, 1, 1]
 # Define result directory
 
 sim_name = "2D_FNO_vc"
-exp_name = "velocity-continuation"
+exp_name = "velocity-continuation-control"
 
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
@@ -115,6 +115,7 @@ for ep = 1:epochs
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
+        break
         x = tensorize(x_train[:, :, idx_e[:,b]], grid, AN)
         y = y_train[:, :, idx_e[:,b]]
         if gpu_flag
@@ -133,23 +134,33 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
-    (ep % 100 !== 0) && continue
-
     Flux.testmode!(NN, true)
     y_predict = NN(tensorize(x_plot, grid, AN) |> gpu)   |> cpu
 
+    Loss_valid[ep] = norm((NN(tensorize(x_valid, grid, AN) |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
+    (ep % 100 !== 0) && continue
+
     fig = figure(figsize=(16, 12))
 
+    x_temp = tensorize(x_train[:, :, 10], grid, AN) |> gpu
+    y_temp2 = NN(x_temp) |> cpu
+
     subplot(3,2,1)
-    plot_velocity(x_plot, (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="GnBu"); colorbar();
-    
+    plot_simage(y_train[:,:,10], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted training RTM"); colorbar();
+
     subplot(3,2,2)
+    plot_simage(y_plot, (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="true continued RTM"); colorbar();
+
+    subplot(3,2,3)
+    plot_simage(y_temp2[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted training RTM"); colorbar();
+
+    subplot(3,2,4)
     plot_simage(y_predict[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted continued RTM"); colorbar();
     
-    subplot(3,2,3)
-    plot_simage(y_plot, (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="true continued RTM"); colorbar();
+    subplot(3,2,5)
+    plot_simage(y_temp2[:,:,1]-y_train[:,:,10], (1f1, 2.5f1); new_fig=false, cmap="RdGy", vmax=2f1, name="diff"); colorbar();
     
-    subplot(3,2,4)
+    subplot(3,2,6)
     plot_simage(y_predict[:,:,1]-y_plot, (1f1, 2.5f1); new_fig=false, cmap="RdGy", vmax=2f1, name="diff"); colorbar();
     
     subplot(3,2,5)
@@ -168,8 +179,6 @@ for ep = 1:epochs
     fig_name = @strdict ep batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid nsamples
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_2Dfno_vc.png"), fig);
     close(fig)
-
-    Loss_valid[ep] = norm((NN(tensorize(x_valid, grid, AN) |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
