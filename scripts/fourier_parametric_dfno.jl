@@ -19,7 +19,6 @@ using SlimPlotting
 ####### NEW STUFF DFNO ###########
 using DFNO:DFNO_3D
 using MPI
-using CUDA
 using .Utils
 using .Config
 
