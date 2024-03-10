@@ -115,7 +115,6 @@ for ep = 1:epochs
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
-        break
         x = tensorize(x_train[:, :, idx_e[:,b]], grid, AN)
         y = y_train[:, :, idx_e[:,b]]
         if gpu_flag
