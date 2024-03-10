@@ -179,14 +179,14 @@ for ep = 1:epochs
     ####### NEW STUFF DFNO ###########
 
     x_temp = tensorize(x_plot, grid, AN) |> gpu
-    x = permutedims(x_temp, [3, 1, 2, 4])
+    x_temp = permutedims(x_temp, [3, 1, 2, 4])
     y_predict = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
 
     # Flux.testmode!(NN, true)
     # y_predict = NN(tensorize(x_plot, grid, AN) |> gpu)   |> cpu
 
     x_temp = tensorize(x_valid, grid, AN) |> gpu
-    x = permutedims(x_temp, [3, 1, 2, 4])
+    x_temp = permutedims(x_temp, [3, 1, 2, 4])
     y_temp = reshape(DFNO_3D.forward(model, θ, x_temp), n..., :) |> gpu
 
     fig = figure(figsize=(16, 12))
@@ -195,7 +195,7 @@ for ep = 1:epochs
     # plot_velocity(x_plot, (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="GnBu"); colorbar();
 
     x_temp = tensorize(x_train[:, :, 1], grid, AN) |> gpu
-    x = permutedims(x_temp, [3, 1, 2, 4])
+    x_temp = permutedims(x_temp, [3, 1, 2, 4])
     y_temp2 = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
 
     subplot(3,2,1)
