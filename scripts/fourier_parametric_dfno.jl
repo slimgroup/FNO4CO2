@@ -201,30 +201,36 @@ for ep = 1:epochs
     y_temp2 = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
 
     subplot(3,2,1)
+    plot_simage(y_train[:,:,10], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted training RTM"); colorbar();
+
+    subplot(3,2,2)
+    plot_simage(y_plot, (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="true continued RTM"); colorbar();
+
+    subplot(3,2,3)
     plot_simage(y_temp2[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted training RTM"); colorbar();
 
-    ####### END NEW STUFF DFNO ###########
-    
-    subplot(3,2,2)
+    subplot(3,2,4)
     plot_simage(y_predict[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted continued RTM"); colorbar();
     
-    subplot(3,2,3)
-    plot_simage(y_plot, (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="true continued RTM"); colorbar();
-    
-    subplot(3,2,4)
-    plot_simage(y_predict[:,:,1]-y_plot, (1f1, 2.5f1); new_fig=false, cmap="RdGy", vmax=2f1, name="diff"); colorbar();
-    
     subplot(3,2,5)
-    plot(y_predict[:,80,1]);
-    plot(y_plot[:,80]);
-    legend(["predict","true"])
-    title("vertical profile at 2km")
+    plot_simage(y_temp2[:,:,1]-y_train[:,:,10], (1f1, 2.5f1); new_fig=false, cmap="RdGy", vmax=2f1, name="diff"); colorbar();
     
     subplot(3,2,6)
-    plot(y_predict[:,164,1]);
-    plot(y_plot[:,164]);
-    legend(["predict","true"])
-    title("vertical profile at 4.12km")
+    plot_simage(y_predict[:,:,1]-y_plot, (1f1, 2.5f1); new_fig=false, cmap="RdGy", vmax=2f1, name="diff"); colorbar();
+    
+    ####### END NEW STUFF DFNO ###########
+
+    # subplot(3,2,5)
+    # plot(y_predict[:,80,1]);
+    # plot(y_plot[:,80]);
+    # legend(["predict","true"])
+    # title("vertical profile at 2km")
+    
+    # subplot(3,2,6)
+    # plot(y_predict[:,164,1]);
+    # plot(y_plot[:,164]);
+    # legend(["predict","true"])
+    # title("vertical profile at 4.12km")
 
     tight_layout()
     fig_name = @strdict ep batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid nsamples
