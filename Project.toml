@@ -21,4 +21,4 @@ PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 SlimPlotting = "f6d04670-764e-495b-a720-91c3c9a588ff"
 
 [compat]
-julia = "1.7"
+julia = "1.8.5"
