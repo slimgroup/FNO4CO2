@@ -133,6 +133,8 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
+    (ep % 100 !== 0) && continue
+
     Flux.testmode!(NN, true)
     y_predict = NN(tensorize(x_plot, grid, AN) |> gpu)   |> cpu
 
@@ -189,25 +191,25 @@ for ep = 1:epochs
     safesave(joinpath(plot_path, savename(fig_name; digits=6)*"_3Dfno_loss.png"), fig);
     close(fig);
 
-    NN_save = NN |> cpu
-    w_save = Flux.params(NN_save)    
+    # NN_save = NN |> cpu
+    # w_save = Flux.params(NN_save)    
 
-    param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid loss_train loss_valid nsamples
-    @tagsave(
-        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
-        param_dict;
-        safe=true
-    )
+    # param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid loss_train loss_valid nsamples
+    # @tagsave(
+    #     datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
+    #     param_dict;
+    #     safe=true
+    # )
     
 end
 
-NN_save = NN |> cpu
-w_save = params(NN_save)
+# NN_save = NN |> cpu
+# w_save = params(NN_save)
 
-final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid nsamples
+# final_dict = @strdict Loss Loss_valid epochs NN_save w_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid nsamples
 
-@tagsave(
-    datadir(sim_name, savename(final_dict, "jld2"; digits=6)),
-    final_dict;
-    safe=true
-)
+# @tagsave(
+#     datadir(sim_name, savename(final_dict, "jld2"; digits=6)),
+#     final_dict;
+#     safe=true
+# )

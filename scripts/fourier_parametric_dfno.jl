@@ -126,7 +126,7 @@ y_plot = y_valid[:, :, 1, 1]
 # Define result directory
 
 sim_name = "2D_FNO_vc"
-exp_name = "velocity-continuation"
+exp_name = "velocity-continuation-test"
 
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
@@ -140,7 +140,6 @@ for ep = 1:epochs
 
     # Flux.trainmode!(NN, true)
     for b = 1:nbatches
-        break
         x = tensorize(x_train[:, :, idx_e[:,b]], grid, AN)
         y = y_train[:, :, idx_e[:,b]]
         if gpu_flag
@@ -176,6 +175,7 @@ for ep = 1:epochs
         ProgressMeter.next!(prog; showvalues = [(:loss, loss), (:epoch, ep), (:batch, b)])
     end
 
+    (ep % 100 !== 0) && continue
     ####### NEW STUFF DFNO ###########
 
     x_temp = tensorize(x_plot, grid, AN) |> gpu
