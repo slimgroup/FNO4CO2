@@ -192,10 +192,10 @@ for ep = 1:epochs
     # plot_velocity(x_plot, (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="GnBu"); colorbar();
 
     x_temp = tensorize(x_train[:, :, 1], grid, AN) |> gpu
-    y_temp = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
+    y_temp2 = reshape(DFNO_3D.forward(model, θ, x_temp), n) |> cpu
 
     subplot(3,2,1)
-    plot_simage(y_temp[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted training RTM"); colorbar();
+    plot_simage(y_temp2[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted training RTM"); colorbar();
 
     ####### END NEW STUFF DFNO ###########
     
