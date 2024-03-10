@@ -55,7 +55,7 @@ end
 n = (160, 205)
 d = 1f0 ./ n
 nsamples = 210
-ntrain = 205
+ntrain = 5 # 205
 nvalid = 5
 grid = gen_grid(n, d);
 
@@ -190,8 +190,8 @@ for ep = 1:epochs
 
     fig = figure(figsize=(16, 12))
 
-    subplot(3,2,1)
-    plot_velocity(x_plot, (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="GnBu"); colorbar();
+    # subplot(3,2,1)
+    # plot_velocity(x_plot, (1f1, 2.5f1); new_fig=false, vmin=0, vmax=0.2, name="background model", cmap="GnBu"); colorbar();
     
     subplot(3,2,2)
     plot_simage(y_predict[:,:,1], (1f1, 2.5f1); new_fig=false, cmap="seismic", vmax=1f2, name="predicted continued RTM"); colorbar();
