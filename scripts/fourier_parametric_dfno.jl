@@ -106,7 +106,7 @@ x_valid = models_test[:,:,1:nvalid];
 # Flux.trainmode!(NN, true)
 # w = Flux.params(NN)
 
-modelConfig = DFNO_3D.ModelConfig(nc_in=4, nc_lift=width, nc_out=1, nx=n[1], ny=n[2], nz=1, nt=1, mx=modes*2, my=modes*2, mz=1, mt=1, nblocks=4, partition=partition, dtype=Float32, relu01=false)
+modelConfig = DFNO_3D.ModelConfig(nc_in=4, nc_lift=width, nc_out=1, nx=1, ny=n[2], nz=1, nt=n[1], mx=1, my=modes*2, mz=1, mt=modes, nblocks=4, partition=partition, dtype=Float32, relu01=false)
 model = DFNO_3D.Model(modelConfig)
 θ = DFNO_3D.initModel(model)
 
