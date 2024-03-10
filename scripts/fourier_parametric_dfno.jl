@@ -19,8 +19,6 @@ using SlimPlotting
 ####### NEW STUFF DFNO ###########
 using DFNO:DFNO_3D
 using MPI
-using .Utils
-using .Config
 
 MPI.Init()
 
@@ -108,7 +106,7 @@ x_valid = models_test[:,:,1:nvalid];
 # Flux.trainmode!(NN, true)
 # w = Flux.params(NN)
 
-modelConfig = DFNO_3D.ModelConfig(nc_in=4, nc_lift=width, nc_out=1, nx=n[0], ny=n[1], nz=1, nt=1, mx=modes, my=modes, mz=1, mt=1, nblocks=4, partition=partition, dtype=Float32, relu01=false)
+modelConfig = DFNO_3D.ModelConfig(nc_in=4, nc_lift=width, nc_out=1, nx=n[1], ny=n[2], nz=1, nt=1, mx=modes, my=modes, mz=1, mt=1, nblocks=4, partition=partition, dtype=Float32, relu01=false)
 model = DFNO_3D.Model(modelConfig)
 θ = DFNO_3D.initModel(model)
 
@@ -148,7 +146,6 @@ for ep = 1:epochs
             x = x |> gpu
             y = y |> gpu
         end
-        println(size(x), size(y))
         x = permutedims(x, [3, 1, 2, 4])
 
         ####### NEW STUFF DFNO ###########
