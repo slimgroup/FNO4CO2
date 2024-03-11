@@ -189,7 +189,7 @@ for ep = 1:epochs
     y_temp = reshape(DFNO_3D.forward(model, θ, x_temp), n..., :) |> gpu
 
     Loss_valid[ep] = norm(y_temp - (y_valid |> gpu))^2f0 * batch_size/nvalid
-    (ep % 100 !== 0) && continue
+    # (ep % 100 !== 0) && continue
 
     fig = figure(figsize=(16, 12))
 
@@ -267,12 +267,14 @@ for ep = 1:epochs
     # NN_save = NN |> cpu
     # w_save = Flux.params(NN_save)    
 
-    # param_dict = @strdict ep NN_save w_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid loss_train loss_valid nsamples
-    # @tagsave(
-    #     datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
-    #     param_dict;
-    #     safe=true
-    # )
+    θ_save = θ |> cpu
+
+    param_dict = @strdict ep θ_save batch_size Loss modes width learning_rate epochs n d AN ntrain nvalid loss_train loss_valid nsamples
+    @tagsave(
+        datadir(sim_name, savename(param_dict, "jld2"; digits=6)),
+        param_dict;
+        safe=true
+    )
     
 end
 
