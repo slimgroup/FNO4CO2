@@ -126,7 +126,7 @@ plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
 
 n_columns = nvalid + 1
 
-fig = figure(figsize=(16 * n_columns, 12))
+fig = figure(figsize=(16 * n_columns, 20))
 
 # Plot for training sample
 x_temp = tensorize(x_train[:, :, 10], grid, AN) |> gpu
