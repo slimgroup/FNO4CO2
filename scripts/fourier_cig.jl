@@ -31,8 +31,6 @@ params = Config.get_parameters()
 offsets = params["n_offsets"]
 partition = [1,pe_count]
 
-gpu = Flux.gpu
-
 ## d, n
 n = (512, 256)
 d = 1f0 ./ n
