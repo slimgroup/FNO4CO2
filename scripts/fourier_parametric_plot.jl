@@ -104,7 +104,7 @@ modelConfig = DFNO_3D.ModelConfig(nc_in=4, nc_lift=width, nc_out=1, nx=1, ny=n[2
 model = DFNO_3D.Model(modelConfig)
 θ = DFNO_3D.initModel(model)
 
-filename = "./data/2D_FNO_vc/batch_size=12_ep=3700_epochs=5000_learning_rate=0.002_modes=24_nsamples=210_ntrain=205_nvalid=5_width=32.jld2"
+filename = "./data/2D_FNO_vc/batch_size=12_ep=2200_epochs=5000_learning_rate=0.002_modes=24_nsamples=210_ntrain=205_nvalid=5_width=32.jld2"
 DFNO_3D.loadWeights!(θ, filename, "θ_save", partition, isLocal=false)
 
 ####### END NEW STUFF DFNO ###########
