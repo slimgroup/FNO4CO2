@@ -189,7 +189,7 @@ for ep = 1:epochs
     y_temp = reshape(DFNO_3D.forward(model, θ, x_temp), n..., :) |> gpu
 
     Loss_valid[ep] = norm(y_temp - (y_valid |> gpu))^2f0 * batch_size/nvalid
-    # (ep % 100 !== 0) && continue
+    (ep % 100 !== 0) && continue
 
     fig = figure(figsize=(16, 12))
 
