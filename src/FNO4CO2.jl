@@ -9,6 +9,10 @@ using Flux
 using FFTW
 using InvertibleNetworks:ActNorm
 using CUDA
+using DFNO:DFNO_3D
+using HDF5
+using PyPlot
+using Statistics
 
 function __init__()
 	global gpu_flag = parse(Bool, get(ENV, "FNO4CO2GPU", "0"))
@@ -17,6 +21,9 @@ end
 
 # Utilities.
 include("./utils.jl")
+include("./config.jl")
+
+using .Config
 
 # FNO model.
 include("./FNOstruct.jl")
