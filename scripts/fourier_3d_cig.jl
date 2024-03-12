@@ -43,7 +43,7 @@ grid = gen_grid(n, d);
 batch_size = 5
 learning_rate = 2f-3
 epochs = 5000
-modes = 25
+modes = 36
 width = 32
 offsets = 51
 
