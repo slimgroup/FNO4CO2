@@ -118,6 +118,7 @@ for ep = 1:epochs
             x = x |> gpu
             y = y |> gpu
         end
+        println(size(x))
         grads = gradient(w) do
             global loss = norm(NN(x)-y)^2f0
             return loss
@@ -130,6 +131,7 @@ for ep = 1:epochs
         break
     end
 
+    println(size(x_valid))
     Flux.testmode!(NN, true)
     Loss_valid[ep] = norm((NN(x_valid |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
     # (ep % 100 !== 0) && continue
