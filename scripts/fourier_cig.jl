@@ -54,7 +54,7 @@ nc_out = offsets
 
 modelConfig = DFNO_3D.ModelConfig(nc_in=nc_in, nc_lift=width, nc_out=nc_out, nx=n[1], ny=n[2], nz=1, nt=1, partition=partition, dtype=Float32)
 
-dataset_path = "/Users/richardr2926/Desktop/Research/Code/FNO-CIG/results/concatenated_data.jld2"
+dataset_path = "/pscratch/sd/r/richardr/FNO-CIG/results/concatenated_data.jld2"
 x_train, y_train, x_valid, y_valid = read_velocity_cigs_offsets_as_nc(dataset_path, modelConfig, ntrain=ntrain, nvalid=nvalid)
 
 x_train = reshape(x_train, nc_in, n..., :)
