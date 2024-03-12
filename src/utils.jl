@@ -281,6 +281,7 @@ function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.Mod
 
     params = Config.get_parameters()
 
+    # TODO: Try using this maybe ?
     offset_start = params["read_offset_start"]
     offset_end = params["read_offset_end"]
 
@@ -298,7 +299,7 @@ function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.Mod
             # Read proper indices of x and x0. NOTE: Disclude 3 because no z = h = offset = 1 for background
             x = x_data[indices[1], indices[2], 1, indices[4]]
             x0 = x0_data[indices[1], indices[2]]
-            cig0 = cig0_data[offset_start:offset_end, indices[1], indices[2]]
+            cig0 = cig0_data[indices[3], indices[1], indices[2]]
             cig0 = permutedims(cig0, [2, 3, 1])
 
             # Reshape to prepare for augmentation
@@ -323,7 +324,7 @@ function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.Mod
         data = nothing
         h5open(file_name, "r") do file
             cigs_data = file[key]
-            cigs = cigs_data[offset_start:offset_end, indices[1], indices[2], indices[4], indices[5]] # dim 4 which is t = 1:1
+            cigs = cigs_data[indices[3], indices[1], indices[2], indices[4], indices[5]] # dim 4 which is t = 1:1
             data = permutedims(cigs ./ 2f3, [2, 3, 1, 4, 5])
         end
 
