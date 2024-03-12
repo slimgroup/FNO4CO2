@@ -187,7 +187,7 @@ function Net3d(modes::Vector{Int64}, width::Int64; in_channels::Int64=4, out_cha
 end
 
 # Manually set full modes for z/t
-Net3d(modes::Int64, width::Int64; in_channels::Int64=4, out_channels::Int64=1, mid_channels::Int64=128) = Net3d([modes,modes,51], width; in_channels=in_channels, out_channels=out_channels, mid_channels=mid_channels)
+Net3d(modes::Int64, width::Int64; in_channels::Int64=4, out_channels::Int64=1, mid_channels::Int64=128) = Net3d([modes,modes,25], width; in_channels=in_channels, out_channels=out_channels, mid_channels=mid_channels)
 
 ### 3D FNO forward evaluation
 function (B::Net3d{T})(x::AbstractArray{T,5}) where T
