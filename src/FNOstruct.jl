@@ -60,7 +60,7 @@ function (L::SpectralConv)(x::AbstractArray{T, 5}) where T
     # x in (size_x, size_y, time, channels, batchsize)
     x_ft = rfft(x,[1,2,3])      ## full size FFT
     (modes1, modes2, modes3) = size(L.weights)[[1,2,3]]
-
+    println(size(L.weights), size(x_ft))
     ### only keep low frequency coefficients
     out_ft = cat(cat(cat(compl_mul(x_ft[1:modes1, 1:modes2, 1:modes3, :,:], L.weights[:,:,:,:,:,1]),
                 zeros(Complex{T}, modes1, modes2, size(x_ft,3)-2*modes3, size(x_ft,4), size(x_ft,5)), 
