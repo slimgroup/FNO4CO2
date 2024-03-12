@@ -140,7 +140,7 @@ for ep = 1:epochs
     y_predict_plot = permutedims(y_predict, [3, 1, 2, 4])
 
     fig_name = @strdict ep batch_size Loss modes width learning_rate epochs n d ntrain nvalid nsamples
-    plot_cig_eval(modelConfig, plot_path, fig_name, x_plot_temp, y_plot_temp, y_predict_plot)
+    plot_cig_eval(modelConfig, plot_path, fig_name, x_plot_temp, y_plot_temp, y_predict_plot, false)
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]

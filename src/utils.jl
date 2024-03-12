@@ -89,7 +89,7 @@ function Patchy(sw::AbstractArray{T, 3}, vp::AbstractMatrix{T}, rho::AbstractMat
     return [stack[i][1] for i = 1:size(sw,1)], [stack[i][2] for i = 1:size(sw,1)]
 end
 
-function plot_cig_eval(modelConfig, plot_path, figname, x_plot, y_plot, y_predict; use_nz=false, additional=Dict{String,Any}())
+function plot_cig_eval(modelConfig, plot_path, figname, x_plot, y_plot, y_predict, use_nz; additional=Dict{String,Any}())
 
     params = Config.get_parameters()
 

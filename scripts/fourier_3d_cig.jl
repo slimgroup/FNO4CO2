@@ -40,7 +40,7 @@ nvalid = 2
 grid = gen_grid(n, d);
 
 ## network structure
-batch_size = 5
+batch_size = 2
 learning_rate = 2f-3
 epochs = 5000
 modes = 36
@@ -98,7 +98,7 @@ y_plot = y_valid[:, :, :, :, 1:1]
 # Define result directory
 
 sim_name = "2D_FNO_vc"
-exp_name = "velocity-continuation-cig-control"
+exp_name = "velocity-continuation-cig-control-3d"
 
 save_dict = @strdict exp_name
 plot_path = plotsdir(sim_name, savename(save_dict; digits=6))
@@ -118,7 +118,6 @@ for ep = 1:epochs
             x = x |> gpu
             y = y |> gpu
         end
-        println(size(x))
         grads = gradient(w) do
             global loss = norm(NN(x)-y)^2f0
             return loss
@@ -131,7 +130,6 @@ for ep = 1:epochs
         break
     end
 
-    println(size(x_valid))
     Flux.testmode!(NN, true)
     Loss_valid[ep] = norm((NN(x_valid |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
     # (ep % 100 !== 0) && continue
@@ -143,7 +141,7 @@ for ep = 1:epochs
     y_predict_plot = permutedims(y_predict, [4, 1, 2, 3, 5])
 
     fig_name = @strdict ep batch_size Loss modes width learning_rate epochs n d ntrain nvalid nsamples
-    plot_cig_eval(modelConfig, plot_path, fig_name, x_plot_temp, y_plot_temp, y_predict_plot, uze_nz=true)
+    plot_cig_eval(modelConfig, plot_path, fig_name, x_plot_temp, y_plot_temp, y_predict_plot, true)
 
     loss_train = Loss[1:ep*nbatches]
     loss_valid = Loss_valid[1:ep]
