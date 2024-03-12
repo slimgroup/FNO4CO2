@@ -34,16 +34,16 @@ partition = [1,pe_count]
 ## d, n
 n = (512, 256)
 d = 1f0 ./ n
-nsamples = 210
-ntrain = 60
-nvalid = 4
+nsamples = 512
+ntrain = 500
+nvalid = 10
 grid = gen_grid(n, d);
 
 ## network structure
-batch_size = 2
+batch_size = 5
 learning_rate = 2f-3
 epochs = 5000
-modes = 24
+modes = 36
 width = 32
 offsets = 51
 
@@ -112,7 +112,6 @@ for ep = 1:epochs
 
     Flux.trainmode!(NN, true)
     for b = 1:nbatches
-        break
         x = x_train[:, :, :, idx_e[:,b]]
         y = y_train[:, :, :, idx_e[:,b]]
         if gpu_flag
@@ -132,7 +131,7 @@ for ep = 1:epochs
 
     Flux.testmode!(NN, true)
     Loss_valid[ep] = norm((NN(x_valid |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
-    # (ep % 100 !== 0) && continue
+    (ep % 100 !== 0) && continue
 
     y_predict = NN(x_plot |> gpu) |> cpu
 
@@ -172,7 +171,6 @@ for ep = 1:epochs
         param_dict;
         safe=true
     )
-    break
 end
 
 NN_save = NN |> cpu
