@@ -139,7 +139,7 @@ function (B::Net2d{T})(x::AbstractArray{T,4}) where T
     x = B.fc1(x)
     x = relu.(x)
     x = B.fc2(x)
-    x = dropdims(x,dims=3)
+    # x = dropdims(x,dims=3)
     return x
 end
 
