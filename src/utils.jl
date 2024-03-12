@@ -1,4 +1,4 @@
-export relu01, perm_to_tensor, gen_grid, jitter, Patchy, read_velocity_cigs_offsets_as_nc, plot_cig_eval
+export relu01, perm_to_tensor, gen_grid, jitter, Patchy, read_velocity_cigs_offsets_as_nc, plot_cig_eval, read_velocity_cigs_offsets_as_nz
 
 ##### constrain to 0-1 #####
 relu01(x::AbstractArray{Float32}) = 1f0.-relu.(1f0.-relu.(x))
@@ -263,6 +263,72 @@ function read_velocity_cigs_offsets_as_nc(path::String, modelConfig::DFNO_3D.Mod
 
         # channels * nx * ny * nz * nt * n = channels * nx * nz * nh * 1 * n
         return reshape(data ./ 2f3, :, map(range -> length(range), indices[1:5])...)
+    end
+
+    dataConfig = DFNO_3D.DataConfig(modelConfig=modelConfig, 
+                                    ntrain=ntrain, 
+                                    nvalid=nvalid, 
+                                    perm_file=path,
+                                    conc_file=path,
+                                    perm_key=["all_xs", "x", "cig0"],
+                                    conc_key="all_cigs")
+
+    return DFNO_3D.loadDistData(dataConfig, dist_read_x_tensor=read_x_tensor, dist_read_y_tensor=read_y_tensor)
+end
+
+
+function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.ModelConfig; ntrain::Int, nvalid::Int)
+
+    params = Config.get_parameters()
+
+    offset_start = params["read_offset_start"]
+    offset_end = params["read_offset_end"]
+
+    # Assumption that x is (nx, nz, 1, n). x0 is (nx, nz). CIG0 is (nh, nx, nz). CIG is (nh, nx, nz, 1, n)
+    function read_x_tensor(file_name, key, indices)
+        data = nothing
+        h5open(file_name, "r") do file
+            # Size to augment
+            target_zeros = zeros(modelConfig.dtype, 1, map(range -> length(range), indices[1:4])...)
+
+            x_data = file[key[1]]
+            x0_data = file[key[2]]
+            cig0_data = file[key[3]]
+
+            # Read proper indices of x and x0. NOTE: Disclude 3 because no z = h = offset = 1 for background
+            x = x_data[indices[1], indices[2], 1, indices[4]]
+            x0 = x0_data[indices[1], indices[2]]
+            cig0 = cig0_data[offset_start:offset_end, indices[1], indices[2]]
+            cig0 = permutedims(cig0, [2, 3, 1])
+
+            # Reshape to prepare for augmentation
+            x = reshape(x, 1, length(indices[1]), length(indices[2]), 1, length(indices[4]))
+            x0 = reshape(x0, 1, length(indices[1]), length(indices[2]), 1, 1)
+            cig0 = reshape(cig0 ./ 2f3, 1, length(indices[1]), length(indices[2]), length(indices[3]), 1)
+
+            # Augment to full size
+            x = target_zeros .+ x
+            x0 = target_zeros .+ x0
+            cig0 = target_zeros .+ cig0
+
+            # Concat along dimension 1
+            data = cat(x, x0, cig0, dims=1)
+        end
+
+        # data_channels * nx * ny * nz * nt * n = data_channels * nx * nz * nh * 1 * n
+        return data
+    end
+    
+    function read_y_tensor(file_name, key, indices)
+        data = nothing
+        h5open(file_name, "r") do file
+            cigs_data = file[key]
+            cigs = cigs_data[offset_start:offset_end, indices[1], indices[2], indices[4], indices[5]] # dim 4 which is t = 1:1
+            data = permutedims(cigs ./ 2f3, [2, 3, 1, 4, 5])
+        end
+
+        # channels * nx * ny * nz * nt * n = channels * nx * nz * nh * 1 * n
+        return reshape(data, 1, size(data)...)
     end
 
     dataConfig = DFNO_3D.DataConfig(modelConfig=modelConfig, 
