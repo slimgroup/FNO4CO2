@@ -131,7 +131,7 @@ for ep = 1:epochs
 
     Flux.testmode!(NN, true)
     Loss_valid[ep] = norm((NN(x_valid |> gpu)) - (y_valid |> gpu))^2f0 * batch_size/nvalid
-    # (ep % 100 !== 0) && continue
+    (ep % 100 !== 0) && continue
 
     y_predict = NN(x_plot |> gpu) |> cpu
 
@@ -171,7 +171,6 @@ for ep = 1:epochs
         param_dict;
         safe=true
     )
-    break
 end
 
 NN_save = NN |> cpu
