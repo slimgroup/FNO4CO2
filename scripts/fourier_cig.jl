@@ -28,11 +28,15 @@ rank = MPI.Comm_rank(comm)
 pe_count = MPI.Comm_size(comm)
 
 params = Config.get_parameters()
+
+nx = params["nx"]
+nz = params["nz"]
 offsets = params["n_offsets"]
+
 partition = [1,pe_count]
 
 ## d, n
-n = (512, 256)
+n = (nx, nz)
 d = 1f0 ./ n
 nsamples = 512
 ntrain = 500
@@ -45,7 +49,6 @@ learning_rate = 2f-3
 epochs = 5000
 modes = 36
 width = 32
-offsets = 51
 
 nc_in = offsets + 1 + 1 + 4 # offsets + 2 velocity models + indices
 nc_out = offsets

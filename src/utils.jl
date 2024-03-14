@@ -219,23 +219,20 @@ end
 function read_velocity_cigs_offsets_as_nc(path::String, modelConfig::DFNO_3D.ModelConfig; ntrain::Int, nvalid::Int)
 
     params = Config.get_parameters()
-
     offset_start = params["read_offset_start"]
-    offset_end = params["read_offset_end"]
+    offsets = params["n_offsets"]
 
     # Assumption that x is (nx, nz, 1, n). x0 is (nx, nz). CIG0 is (nh, nx, nz). CIG is (nh, nx, nz, 1, n)
     function read_x_tensor(file_name, key, indices)
         data = nothing
         h5open(file_name, "r") do file
             x_data = file[key[1]]
-            x0_data = file[key[2]]
-            cig0_data = file[key[3]]
-            offsets = modelConfig.nc_in - 6 # - indices - 2 velocity models
+            cigs_data = file[key[2]]
 
             # Read proper indices of x and x0. NOTE: Disclude 3 because no z = 1 for background
             x = x_data[indices[1], indices[2], 1, indices[4]]
-            x0 = x0_data[indices[1], indices[2]]
-            cig0 = cig0_data[offset_start:offset_end, indices[1], indices[2]]
+            x0 = x_data[indices[1], indices[2], 1, 1] # Use the first x for init model for now
+            cig0 = cigs_data[offset_start:offset_start+offsets-1, indices[1], indices[2], 1, 1] # Use the first cig for init cig for now
 
             # Reshape to prepare for augmentation
             x = reshape(x, :, map(range -> length(range), indices[1:4])...)
@@ -243,7 +240,7 @@ function read_velocity_cigs_offsets_as_nc(path::String, modelConfig::DFNO_3D.Mod
             cig0 = reshape(cig0, :, map(range -> length(range), indices[1:3])..., 1)
 
             x0 = repeat(x0, outer=[1, 1, 1, 1, length(indices[4])])
-            cig0 = repeat(cig0 ./ 2f3, outer=[1, 1, 1, 1, length(indices[4])])
+            cig0 = repeat(cig0, outer=[1, 1, 1, 1, length(indices[4])])
 
             # Concat along dimension 1
             data = cat(x, x0, cig0, dims=1)
@@ -252,17 +249,16 @@ function read_velocity_cigs_offsets_as_nc(path::String, modelConfig::DFNO_3D.Mod
         # data_channels * nx * ny * nz * nt * n = data_channels * nx * nz * nh * 1 * n
         return data
     end
-
+    
     function read_y_tensor(file_name, key, indices)
         data = nothing
         h5open(file_name, "r") do file
-            offsets = modelConfig.nc_in - 6 # - indices - 2 velocity models
             cigs_data = file[key]
-            data = cigs_data[offset_start:offset_end, indices[1], indices[2], indices[4], indices[5]] # first dim is offsets as channel, dim 4 which is t = 1:1
+            data = cigs_data[offset_start:offset_start+offsets-1, indices[1], indices[2], 1, indices[5]] # first dim is offsets as channel, dim 4 which is t = 1:1
         end
 
         # channels * nx * ny * nz * nt * n = channels * nx * nz * nh * 1 * n
-        return reshape(data ./ 2f3, :, map(range -> length(range), indices[1:5])...)
+        return reshape(data, :, map(range -> length(range), indices[1:5])...)
     end
 
     dataConfig = DFNO_3D.DataConfig(modelConfig=modelConfig, 
@@ -270,8 +266,8 @@ function read_velocity_cigs_offsets_as_nc(path::String, modelConfig::DFNO_3D.Mod
                                     nvalid=nvalid, 
                                     perm_file=path,
                                     conc_file=path,
-                                    perm_key=["all_xs", "x", "cig0"],
-                                    conc_key="all_cigs")
+                                    perm_key=["xs", "cigs"],
+                                    conc_key="cigs")
 
     return DFNO_3D.loadDistData(dataConfig, dist_read_x_tensor=read_x_tensor, dist_read_y_tensor=read_y_tensor)
 end
@@ -280,10 +276,7 @@ end
 function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.ModelConfig; ntrain::Int, nvalid::Int)
 
     params = Config.get_parameters()
-
-    # TODO: Try using this maybe ?
     offset_start = params["read_offset_start"]
-    offset_end = params["read_offset_end"]
 
     # Assumption that x is (nx, nz, 1, n). x0 is (nx, nz). CIG0 is (nh, nx, nz). CIG is (nh, nx, nz, 1, n)
     function read_x_tensor(file_name, key, indices)
@@ -293,19 +286,18 @@ function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.Mod
             target_zeros = zeros(modelConfig.dtype, 1, map(range -> length(range), indices[1:4])...)
 
             x_data = file[key[1]]
-            x0_data = file[key[2]]
-            cig0_data = file[key[3]]
+            cigs_data = file[key[2]]
 
             # Read proper indices of x and x0. NOTE: Disclude 3 because no z = h = offset = 1 for background
             x = x_data[indices[1], indices[2], 1, indices[4]]
-            x0 = x0_data[indices[1], indices[2]]
-            cig0 = cig0_data[indices[3], indices[1], indices[2]]
+            x0 = x_data[indices[1], indices[2], 1, 1] # Use the first x for init model for now
+            cig0 = cigs_data[indices[3] .+ (offset_start - 1), indices[1], indices[2], 1, 1] # Use the first cig for init cig for now
             cig0 = permutedims(cig0, [2, 3, 1])
 
             # Reshape to prepare for augmentation
             x = reshape(x, 1, length(indices[1]), length(indices[2]), 1, length(indices[4]))
             x0 = reshape(x0, 1, length(indices[1]), length(indices[2]), 1, 1)
-            cig0 = reshape(cig0 ./ 2f3, 1, length(indices[1]), length(indices[2]), length(indices[3]), 1)
+            cig0 = reshape(cig0, 1, length(indices[1]), length(indices[2]), length(indices[3]), 1)
 
             # Augment to full size
             x = target_zeros .+ x
@@ -324,8 +316,8 @@ function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.Mod
         data = nothing
         h5open(file_name, "r") do file
             cigs_data = file[key]
-            cigs = cigs_data[indices[3], indices[1], indices[2], indices[4], indices[5]] # dim 4 which is t = 1:1
-            data = permutedims(cigs ./ 2f3, [2, 3, 1, 4, 5])
+            cigs = cigs_data[indices[3] .+ (offset_start - 1), indices[1], indices[2], indices[4], indices[5]] # dim 4 which is t = 1:1
+            data = permutedims(cigs, [2, 3, 1, 4, 5])
         end
 
         # channels * nx * ny * nz * nt * n = channels * nx * nz * nh * 1 * n
@@ -337,8 +329,8 @@ function read_velocity_cigs_offsets_as_nz(path::String, modelConfig::DFNO_3D.Mod
                                     nvalid=nvalid, 
                                     perm_file=path,
                                     conc_file=path,
-                                    perm_key=["all_xs", "x", "cig0"],
-                                    conc_key="all_cigs")
+                                    perm_key=["xs", "cigs"],
+                                    conc_key="cigs")
 
     return DFNO_3D.loadDistData(dataConfig, dist_read_x_tensor=read_x_tensor, dist_read_y_tensor=read_y_tensor)
 end
